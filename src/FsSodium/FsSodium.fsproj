@@ -10,6 +10,8 @@
   <ItemGroup>
     <Compile Include="Interop.fs" />
     <Compile Include="YoLo.fs" />
+    <Compile Include="Common.fs" />
+    <Compile Include="PublicKeyAuthentication.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
