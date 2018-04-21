@@ -1,4 +1,4 @@
-module FsSodium.Interop
+module internal FsSodium.Interop
 
 open System
 open System.Runtime.InteropServices
@@ -27,3 +27,27 @@ extern int crypto_sign_open(
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_sign_keypair(byte[] publicKey, byte[] secretKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_easy(
+    byte[] cipherText,
+    byte[] plainText,
+    int64 plainTextLength,
+    byte[] nonce,
+    byte[] publicKey,
+    byte[] secretKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_open_easy(
+    byte[] plainText,
+    byte[] cipherText,
+    int64 cipherTextLength,
+    byte[] nonce,
+    byte[] publicKey,
+    byte[] secretKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_keypair(byte[] publicKey, byte[] secretKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern void randombytes_buf(byte[] buffer, int64 bufferSize);
