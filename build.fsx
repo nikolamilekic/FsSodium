@@ -54,13 +54,14 @@ Target.create "BumpVersion" <| fun _ ->
     File.ReadAllLines appveyorPath
     |> Seq.map (function
         | line when line.StartsWith "version:" ->
-            sprintf "version: %s" releaseNotes.NugetVersion
+            sprintf "version: %s+{build}" releaseNotes.NugetVersion
         | line -> line)
     |> fun lines -> File.WriteAllLines(appveyorPath, lines)
     Staging.stageAll ""
     Commit.exec "" (sprintf "Bump version to %s" releaseNotes.NugetVersion)
 Target.create "Release" <| fun _ ->
     let remote = Environment.environVarOrFail "FsSodiumRemote"
+    Branches.tag "" releaseNotes.NugetVersion
     Branches.pushTag "" remote releaseNotes.NugetVersion
 Target.create "CopyBinaries" <| fun _ ->
     !! "src/**/*.fsproj"
