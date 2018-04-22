@@ -70,6 +70,9 @@ Target.create "CopyBinaries" <| fun _ ->
     |>  Seq.iter (fun (source, target) ->
         Shell.CopyDir target source (fun _ -> true))
 Target.create "Nuget" <| fun _ ->
+    let isAppVeyor = Environment.environVarAsBool "APPVEYOR"
+    let fromTag = Environment.environVarAsBool "APPVEYOR_REPO_TAG"
+    if isAppVeyor && (not fromTag) then () else
     Paket.pack (fun p ->
         { p with
             OutputPath = "bin"
