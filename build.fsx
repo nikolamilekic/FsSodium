@@ -37,24 +37,43 @@ Target.create "Test" <| fun _ ->
             (fun o -> { o with WorkingDirectory = path }) "run" "-c Release")
     |> List.ofSeq
     |> List.iter (fun r -> if r.ExitCode <> 0 then failwith "Tests failed")
-Target.create "BumpVersion" <| fun _ ->
+Target.create "UpdateAssemblyInfo" <| fun _ ->
+    let version =
+        match Environment.environVarOrNone "APPVEYOR_BUILD_NUMBER" with
+        | None -> releaseNotes.AssemblyVersion
+        | Some buildNumber ->
+            let assemblyVersion = SemVer.parse(releaseNotes.AssemblyVersion)
+            sprintf
+                "%i.%i.%i.%s"
+                assemblyVersion.Major
+                assemblyVersion.Minor
+                assemblyVersion.Patch
+                buildNumber
     !! "src/**/*.fsproj"
     |> Seq.iter (fun projectPath ->
         let projectName = Path.GetFileNameWithoutExtension projectPath
         let attributes = [
             AssemblyInfo.Title projectName
             AssemblyInfo.Product productName
-            AssemblyInfo.Version releaseNotes.AssemblyVersion
-            AssemblyInfo.FileVersion releaseNotes.AssemblyVersion
+            AssemblyInfo.Version version
+            AssemblyInfo.FileVersion version
         ]
         AssemblyInfoFile.createFSharp
             (Path.GetDirectoryName projectPath </> "AssemblyInfo.fs")
             attributes)
+Target.create "BumpVersion" <| fun _ ->
     let appveyorPath = "appveyor.yml"
+    let appveyorVersion =
+        let assemblyVersion = SemVer.parse(releaseNotes.AssemblyVersion)
+        sprintf
+            "%i.%i.%i.{build}"
+            assemblyVersion.Major
+            assemblyVersion.Minor
+            assemblyVersion.Patch
     File.ReadAllLines appveyorPath
     |> Seq.map (function
         | line when line.StartsWith "version:" ->
-            sprintf "version: %s+{build}" releaseNotes.NugetVersion
+            sprintf "version: %s" appveyorVersion
         | line -> line)
     |> fun lines -> File.WriteAllLines(appveyorPath, lines)
     Staging.stageAll ""
@@ -84,6 +103,7 @@ Target.create "AppVeyor" DoNothing
 Target.create "Rebuild" DoNothing
 
 "Clean"
+    ?=> "UpdateAssemblyInfo"
     ?=> "Build"
     ==> "CopyBinaries"
     ==> "Test"
@@ -93,5 +113,7 @@ Target.create "Rebuild" DoNothing
 
 "Clean" ==> "Rebuild"
 "Rebuild" ==> "Release"
+"UpdateAssemblyInfo" ==> "BumpVersion"
+"UpdateAssemblyInfo" ==> "AppVeyor"
 
 runOrDefault "Test"
