@@ -1,5 +1,5 @@
 [<AutoOpen>]
-module YoLo
+module FsSodium.YoLo
 
 open System.Threading
 
