@@ -102,15 +102,15 @@ Target.create "AppVeyor" DoNothing
 
 Target.create "Rebuild" DoNothing
 
-"Clean"
-    ?=> "UpdateAssemblyInfo"
-    ?=> "Build"
+"Build"
     ==> "CopyBinaries"
     ==> "Test"
     ==> "Rebuild"
     ==> "Nuget"
     ==> "AppVeyor"
 
+"UpdateAssemblyInfo" ?=> "Build"
+"Clean" ?=> "Build"
 "Clean" ==> "Rebuild"
 "Rebuild" ==> "Release"
 "UpdateAssemblyInfo" ==> "BumpVersion"
