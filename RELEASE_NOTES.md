@@ -1,3 +1,6 @@
+### 0.2 - Unreleased
+* Switch to using Milekic.YoLo
+
 ### 0.1.1 - 2018/04/25
 * Move YoLo to FsSodium namespace
 
