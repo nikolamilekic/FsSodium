@@ -2,6 +2,7 @@ module FsSodium.PublicKeyAuthentication
 
 open System
 
+type SignedText = SignedTextBytes of byte[]
 type SecretKey = private SecretKeyBytes of byte[]
 type PublicKey = private PublicKeyBytes of byte[]
 

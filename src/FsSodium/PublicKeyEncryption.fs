@@ -3,6 +3,7 @@ module FsSodium.PublicKeyEncryption
 type SecretKey = private SecretKeyBytes of byte[]
 type PublicKey = private PublicKeyBytes of byte[]
 type Nonce = private NonceBytes of byte[]
+type CipherText = { CipherTextBytes : byte[]; Nonce : Nonce }
 
 let private publicKeyLength = 32;
 let private secretKeyLength = 32;
@@ -12,7 +13,7 @@ let private macLength = 16;
 let encrypt
     (SecretKeyBytes senderKey)
     (PublicKeyBytes recipientKey)
-    ((NonceBytes nonce), (PlainTextBytes plainText)) =
+    ((NonceBytes nonceBytes) as nonce, (PlainTextBytes plainText)) =
 
     let plainTextLength = Array.length plainText
     let cipherTextLength = macLength + plainTextLength
@@ -23,15 +24,17 @@ let encrypt
             cipherText,
             plainText,
             int64 plainTextLength,
-            nonce,
+            nonceBytes,
             recipientKey,
             senderKey)
 
-    if result = 0 then Ok <| CipherTextBytes cipherText else Error()
+    if result = 0
+    then Ok <| { CipherTextBytes = cipherText; Nonce = nonce }
+    else Error()
 let decrypt
     (SecretKeyBytes recipientKey)
     (PublicKeyBytes senderKey)
-    ((NonceBytes nonce), (CipherTextBytes cipherText)) =
+    { CipherTextBytes = cipherText; Nonce = NonceBytes nonce } =
 
     let cipherTextLength = Array.length cipherText
     let plainTextLength = cipherTextLength - macLength
