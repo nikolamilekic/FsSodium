@@ -2,3 +2,4 @@ Expecto
 Expecto.BenchmarkDotNet
 Expecto.FsCheck
 Unquote
+Milekic.YoLo

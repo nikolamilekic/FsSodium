@@ -10,7 +10,6 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Interop.fs" />
-    <Compile Include="YoLo.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="PublicKeyAuthentication.fs" />
     <Compile Include="PublicKeyEncryption.fs" />
