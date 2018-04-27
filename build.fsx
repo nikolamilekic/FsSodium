@@ -1,4 +1,5 @@
 #r "paket:
+nuget Fake.Api.GitHub //
 nuget Fake.Core.ReleaseNotes prerelease //
 nuget Fake.Core.Target prerelease //
 nuget Fake.DotNet.AssemblyInfoFile //
@@ -11,6 +12,7 @@ nuget Fake.Tools.Git prerelease //"
 
 open System.IO
 
+open Fake.Api
 open Fake.Core
 open Fake.Core.Target
 open Fake.Core.TargetOperators
@@ -22,13 +24,15 @@ open Fake.Runtime
 open Fake.Tools.Git
 
 let productName = "FsSodium"
+let gitOwner = "nikolamilekic"
+let gitHome = "https://github.com/" + gitOwner
 let releaseNotes = ReleaseNotes.load "RELEASE_NOTES.md"
 
 Target.create "Clean" <| fun _ ->
     Seq.allPairs [|"src"; "tests"|] [|"bin"; "obj"|]
     |> Seq.collect (fun (x, y) -> !!(sprintf "%s/**/%s" x y))
     |> Seq.append [|"bin"; "obj"|]
-    |> Shell.DeleteDirs
+    |> Shell.deleteDirs
 Target.create "Build" <| fun _ -> DotNet.build id (productName + ".sln")
 Target.create "Test" <| fun _ ->
     !! "tests/*.Tests/"
@@ -79,25 +83,42 @@ Target.create "BumpVersion" <| fun _ ->
     Staging.stageAll ""
     Commit.exec "" (sprintf "Bump version to %s" releaseNotes.NugetVersion)
 Target.create "Release" <| fun _ ->
-    let remote = Environment.environVarOrFail "FsSodiumRemote"
-    Branches.tag "" releaseNotes.NugetVersion
-    Branches.pushTag "" remote releaseNotes.NugetVersion
+    let remote =
+        CommandHelper.getGitResult "" "remote -v"
+        |> Seq.filter (fun s -> s.EndsWith("(push)"))
+        |> Seq.tryFind (fun s -> s.Contains(gitOwner + "/" + productName))
+        |> function | None -> gitHome + "/" + productName
+                    | Some s -> s.Split().[0]
+    let token = Environment.environVarOrFail "GitHubToken"
+    let version = releaseNotes.NugetVersion
+    Branches.tag "" version
+    Branches.pushTag "" remote version
+    GitHub.createClientWithToken token
+    |> GitHub.draftNewRelease
+        gitOwner
+        productName
+        version
+        (releaseNotes.SemVer.PreRelease <> None)
+        releaseNotes.Notes
+    |> GitHub.publishDraft
+    |> Async.RunSynchronously
 Target.create "CopyBinaries" <| fun _ ->
     !! "src/**/*.fsproj"
     |>  Seq.map (fun projectPath ->
         (Path.GetDirectoryName projectPath) </> "bin/Release",
         "bin" </> (Path.GetFileNameWithoutExtension projectPath))
     |>  Seq.iter (fun (source, target) ->
-        Shell.CopyDir target source (fun _ -> true))
+        Shell.copyDir target source (fun _ -> true))
 Target.create "Nuget" <| fun _ ->
     let isAppVeyor = Environment.environVarAsBool "APPVEYOR"
+    let prerelease = releaseNotes.SemVer.PreRelease |> Option.isSome
     let fromTag = Environment.environVarAsBool "APPVEYOR_REPO_TAG"
-    if isAppVeyor && (not fromTag) then () else
-    Paket.pack (fun p ->
-        { p with
-            OutputPath = "bin"
-            Version = releaseNotes.NugetVersion
-            ReleaseNotes = String.toLines releaseNotes.Notes})
+    if not isAppVeyor || prerelease || fromTag then
+        Paket.pack (fun p ->
+            { p with
+                OutputPath = "bin"
+                Version = releaseNotes.NugetVersion
+                ReleaseNotes = String.toLines releaseNotes.Notes } )
 Target.create "AppVeyor" DoNothing
 
 Target.create "Rebuild" DoNothing

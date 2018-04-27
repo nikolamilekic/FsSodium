@@ -1,4 +1,4 @@
-### 0.2 - 2018/04/27
+### 0.2-dev - Unreleased
 * Switch to using Milekic.YoLo
 * PublicKeyEncryption.encrypt now returns nonce in addition to cipher text to simplify interface usage
 
