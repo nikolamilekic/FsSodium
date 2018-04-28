@@ -37,5 +37,5 @@ let generateKeyPair() =
     let secretKey = Array.zeroCreate secretKeyLength
     let result = Interop.crypto_sign_keypair(publicKey, secretKey)
     if result = 0
-    then Ok <| (PublicKeyBytes publicKey, SecretKeyBytes secretKey)
+    then Ok <| (SecretKeyBytes secretKey, PublicKeyBytes publicKey)
     else Error()

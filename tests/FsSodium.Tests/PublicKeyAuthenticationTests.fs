@@ -11,7 +11,7 @@ do Sodium.initialize()
 
 let generateKeyPair = generateKeyPair
                       >> Result.failOnError "generateKeyPair failed"
-let publicKey, secretKey = generateKeyPair()
+let secretKey, publicKey = generateKeyPair()
 let signWithFixture = sign secretKey >> Result.failOnError "sign failed"
 let verifyWithFixture = verify publicKey >> Result.failOnError "verify failed"
 
@@ -38,7 +38,8 @@ let publicKeyAuthenticationTests =
         yield testCase "Verify fails for wrong key" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
             let signedText = signWithFixture plainText
-            let pkEve, _ = generateKeyPair()
+            let _, pkEve
+             = generateKeyPair()
             verifyWithFixture signedText |> ignore
             verify pkEve signedText =! Error()
     ]

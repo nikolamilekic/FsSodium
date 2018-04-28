@@ -11,7 +11,7 @@ do Sodium.initialize()
 
 let generateKeyPair = generateKeyPair
                       >> Result.failOnError "generateKeyPair failed"
-let publicKey, secretKey = generateKeyPair()
+let secretKey, publicKey = generateKeyPair()
 
 let encryptWithFixture = encrypt secretKey publicKey
                          >> Result.failOnError "encrypt failed"
@@ -45,7 +45,7 @@ let publicKeyAuthenticationTests =
         yield testCase "Decrypt fails with wrong key" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
             let nonce = generateNonce()
-            let _, secretKeyEve = generateKeyPair()
+            let secretKeyEve, _ = generateKeyPair()
             encryptWithFixture (nonce, plainText)
             |> decrypt secretKeyEve publicKey
             =! Error()
