@@ -11,42 +11,49 @@ do Sodium.initialize()
 
 let generateKeyPair = generateKeyPair
                       >> Result.failOnError "generateKeyPair failed"
-let secretKey, publicKey = generateKeyPair()
-
-let encryptWithFixture = encrypt secretKey publicKey
-                         >> Result.failOnError "encrypt failed"
-let decryptWithFixture = decrypt secretKey publicKey
-                         >> Result.failOnError "decrypt failed"
+let encrypt sk pk = encrypt sk pk >> Result.failOnError "encrypt failed"
 
 [<Tests>]
 let publicKeyAuthenticationTests =
     testList "PublicKeyEncryption" [
         yield testCase "Roundtrip works" <| fun () ->
+            let keyPair = generateKeyPair()
             let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
             let nonce = generateNonce()
-            encryptWithFixture (nonce, plainText)
-            |> decryptWithFixture
-            =! plainText
+            uncurry encrypt keyPair (nonce, plainText)
+            |> uncurry decrypt keyPair
+            =! Ok plainText
+        yield testCase "Alice and bob roundtrip works" <| fun () ->
+            let alice = generateKeyPair()
+            let bob = generateKeyPair()
+            let nonce = generateNonce()
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            encrypt (fst alice) (snd bob) (nonce, plainText)
+            |> decrypt (fst bob) (snd alice)
+            =! Ok plainText
         yield testCase "Decrypt fails with modified cipher text" <| fun () ->
+            let keyPair = generateKeyPair()
             let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
             let nonce = generateNonce()
             let { CipherTextBytes = cipherTextBytes } as cipherText =
-                encryptWithFixture (nonce, plainText)
+                uncurry encrypt keyPair (nonce, plainText)
             cipherTextBytes.[0] <- cipherTextBytes.[1]
-            decrypt secretKey publicKey cipherText =! Error()
+            uncurry decrypt keyPair cipherText =! Error()
         yield testCase "Decrypt fails with modified nonce" <| fun () ->
+            let keyPair = generateKeyPair()
             let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
             let nonce1 = generateNonce()
             let nonce2 = generateNonce()
-            let cipherText = encryptWithFixture (nonce1, plainText)
+            let cipherText = uncurry encrypt keyPair (nonce1, plainText)
             { cipherText with Nonce = nonce2 }
-            |> decrypt secretKey publicKey
+            |> uncurry decrypt keyPair
             =! Error()
         yield testCase "Decrypt fails with wrong key" <| fun () ->
+            let keyPair = generateKeyPair()
             let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
             let nonce = generateNonce()
             let secretKeyEve, _ = generateKeyPair()
-            encryptWithFixture (nonce, plainText)
-            |> decrypt secretKeyEve publicKey
+            uncurry encrypt keyPair (nonce, plainText)
+            |> decrypt secretKeyEve (snd keyPair)
             =! Error()
     ]

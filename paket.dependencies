@@ -6,4 +6,4 @@ nuget Expecto.BenchmarkDotNet
 nuget Expecto.FsCheck
 nuget Unquote
 nuget libsodium
-nuget Milekic.YoLo
+nuget Milekic.YoLo prerelease
