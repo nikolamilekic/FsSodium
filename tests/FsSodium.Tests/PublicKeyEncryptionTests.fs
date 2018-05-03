@@ -9,10 +9,6 @@ open PublicKeyEncryption
 
 do Sodium.initialize()
 
-let generateKeyPair = generateKeyPair
-                      >> Result.failOnError "generateKeyPair failed"
-let encrypt sk pk = encrypt sk pk >> Result.failOnError "encrypt failed"
-
 [<Tests>]
 let publicKeyAuthenticationTests =
     testList "PublicKeyEncryption" [

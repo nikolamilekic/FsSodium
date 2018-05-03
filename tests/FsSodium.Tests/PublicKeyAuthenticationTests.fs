@@ -9,10 +9,8 @@ open PublicKeyAuthentication
 
 do Sodium.initialize()
 
-let generateKeyPair = generateKeyPair
-                      >> Result.failOnError "generateKeyPair failed"
 let secretKey, publicKey = generateKeyPair()
-let signWithFixture = sign secretKey >> Result.failOnError "sign failed"
+let signWithFixture = sign secretKey
 let verifyWithFixture = verify publicKey >> Result.failOnError "verify failed"
 
 [<Tests>]

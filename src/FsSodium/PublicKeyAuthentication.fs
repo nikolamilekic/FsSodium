@@ -1,6 +1,7 @@
 module FsSodium.PublicKeyAuthentication
 
 open System
+open System.Security.Cryptography
 
 type SignedText = SignedTextBytes of byte[]
 type SecretKey = private SecretKeyBytes of byte[]
@@ -20,7 +21,10 @@ let sign (SecretKeyBytes secretKey) (PlainTextBytes plainText) =
             plainText,
             int64 plainTextLength,
             secretKey)
-    if result = 0 then Ok <| SignedTextBytes signedText else Error()
+    if result = 0
+    then SignedTextBytes signedText
+    else CryptographicException("Signing failed. This should not happen. Please report this error.")
+         |> raise
 let verify (PublicKeyBytes key) (SignedTextBytes signedText) =
     let signedTextLength = Array.length signedText
     let plainText = Array.zeroCreate (signedTextLength - signatureLength)
@@ -37,5 +41,6 @@ let generateKeyPair() =
     let secretKey = Array.zeroCreate secretKeyLength
     let result = Interop.crypto_sign_keypair(publicKey, secretKey)
     if result = 0
-    then Ok <| (SecretKeyBytes secretKey, PublicKeyBytes publicKey)
-    else Error()
+    then SecretKeyBytes secretKey, PublicKeyBytes publicKey
+    else CryptographicException("Authentication key generation failed. This should not happen. Please report this error.")
+         |> raise

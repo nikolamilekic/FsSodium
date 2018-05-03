@@ -1,5 +1,7 @@
 module FsSodium.PublicKeyEncryption
 
+open System.Security.Cryptography
+
 type SecretKey = private SecretKeyBytes of byte[]
 type PublicKey = private PublicKeyBytes of byte[]
 type Nonce = private NonceBytes of byte[]
@@ -29,8 +31,9 @@ let encrypt
             senderKey)
 
     if result = 0
-    then Ok <| { CipherTextBytes = cipherText; Nonce = nonce }
-    else Error()
+    then { CipherTextBytes = cipherText; Nonce = nonce }
+    else CryptographicException("Encryption failed. This should not happen. Please report this error.")
+         |> raise
 let decrypt
     (SecretKeyBytes recipientKey)
     (PublicKeyBytes senderKey)
@@ -55,8 +58,9 @@ let generateKeyPair() =
     let secretKey = Array.zeroCreate secretKeyLength
     let result = Interop.crypto_box_keypair(publicKey, secretKey)
     if result = 0
-    then Ok <| (SecretKeyBytes secretKey, PublicKeyBytes publicKey)
-    else Error()
+    then SecretKeyBytes secretKey, PublicKeyBytes publicKey
+    else CryptographicException("Encryption key generation failed. This should not happen. Please report this error.")
+         |> raise
 let generateNonce() =
     let buffer = Array.zeroCreate nonceLength
     Interop.randombytes_buf(buffer, int64 nonceLength)
