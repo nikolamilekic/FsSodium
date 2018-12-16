@@ -1,6 +1,7 @@
 ### 0.2-dev - Unreleased
 * Switch to using Milekic.YoLo
 * PublicKeyEncryption.encrypt now returns nonce in addition to cipher text to simplify interface usage
+* Add Random
 
 ### 0.1.1 - 2018/04/25
 * Move YoLo to FsSodium namespace

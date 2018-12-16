@@ -61,7 +61,4 @@ let generateKeyPair() =
     then SecretKeyBytes secretKey, PublicKeyBytes publicKey
     else CryptographicException("Encryption key generation failed. This should not happen. Please report this error.")
          |> raise
-let generateNonce() =
-    let buffer = Array.zeroCreate nonceLength
-    Interop.randombytes_buf(buffer, int64 nonceLength)
-    NonceBytes buffer
+let generateNonce() = Random.bytes nonceLength |> NonceBytes
