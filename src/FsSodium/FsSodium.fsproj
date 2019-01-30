@@ -11,6 +11,7 @@
     <Compile Include="Secret.fs" />
     <Compile Include="PublicKeyAuthentication.fs" />
     <Compile Include="PublicKeyEncryption.fs" />
+    <Compile Include="PasswordHashing.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

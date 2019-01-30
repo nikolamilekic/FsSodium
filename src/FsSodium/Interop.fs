@@ -66,3 +66,14 @@ extern int sodium_munlock(
 extern void sodium_memzero(
     byte[] array,
     int length);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_pwhash(
+    byte[] key,
+    int64 keyLength,
+    byte[] password,
+    int64 passwordLength,
+    byte[] salt,
+    int64 maxNumberOfOperations,
+    int maxAmountOfMemoryToUse,
+    int algorithm);
