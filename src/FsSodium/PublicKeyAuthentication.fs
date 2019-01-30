@@ -4,14 +4,14 @@ open System
 open System.Security.Cryptography
 
 type SignedText = SignedTextBytes of byte[]
-type SecretKey = private SecretKeyBytes of byte[]
+type SecretKey = private SecretKeySecret of Secret
 type PublicKey = private PublicKeyBytes of byte[]
 
 let private signatureLength = 64
 let private publicKeyLength = 32
 let private secretKeyLength = 64
 
-let sign (SecretKeyBytes secretKey) (PlainTextBytes plainText) =
+let sign (SecretKeySecret secret) (PlainTextBytes plainText) =
     let plainTextLength = Array.length plainText
     let signedText = Array.zeroCreate (plainTextLength + signatureLength)
     let result =
@@ -20,7 +20,7 @@ let sign (SecretKeyBytes secretKey) (PlainTextBytes plainText) =
             IntPtr.Zero,
             plainText,
             int64 plainTextLength,
-            secretKey)
+            secret.Secret)
     if result = 0
     then SignedTextBytes signedText
     else CryptographicException("Signing failed. This should not happen. Please report this error.")
@@ -39,8 +39,11 @@ let verify (PublicKeyBytes key) (SignedTextBytes signedText) =
 let generateKeyPair() =
     let publicKey = Array.zeroCreate publicKeyLength
     let secretKey = Array.zeroCreate secretKeyLength
+    let secret = new Secret(secretKey)
     let result = Interop.crypto_sign_keypair(publicKey, secretKey)
     if result = 0
-    then SecretKeyBytes secretKey, PublicKeyBytes publicKey
-    else CryptographicException("Authentication key generation failed. This should not happen. Please report this error.")
-         |> raise
+    then SecretKeySecret secret, PublicKeyBytes publicKey
+    else
+        (secret :> IDisposable).Dispose()
+        CryptographicException("Authentication key generation failed. This should not happen. Please report this error.")
+        |> raise

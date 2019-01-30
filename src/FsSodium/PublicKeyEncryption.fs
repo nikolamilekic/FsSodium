@@ -1,8 +1,9 @@
 module FsSodium.PublicKeyEncryption
 
+open System
 open System.Security.Cryptography
 
-type SecretKey = private SecretKeyBytes of byte[]
+type SecretKey = private SecretKeySecret of Secret
 type PublicKey = private PublicKeyBytes of byte[]
 type Nonce = private NonceBytes of byte[]
 type CipherText = { CipherTextBytes : byte[]; Nonce : Nonce }
@@ -13,7 +14,7 @@ let private nonceLength = 24;
 let private macLength = 16;
 
 let encrypt
-    (SecretKeyBytes senderKey)
+    (SecretKeySecret senderKey)
     (PublicKeyBytes recipientKey)
     ((NonceBytes nonceBytes) as nonce, (PlainTextBytes plainText)) =
 
@@ -28,14 +29,14 @@ let encrypt
             int64 plainTextLength,
             nonceBytes,
             recipientKey,
-            senderKey)
+            senderKey.Secret)
 
     if result = 0
     then { CipherTextBytes = cipherText; Nonce = nonce }
     else CryptographicException("Encryption failed. This should not happen. Please report this error.")
          |> raise
 let decrypt
-    (SecretKeyBytes recipientKey)
+    (SecretKeySecret recipientKey)
     (PublicKeyBytes senderKey)
     { CipherTextBytes = cipherText; Nonce = NonceBytes nonce } =
 
@@ -50,15 +51,18 @@ let decrypt
             int64 cipherTextLength,
             nonce,
             senderKey,
-            recipientKey)
+            recipientKey.Secret)
 
     if result = 0 then Ok <| PlainTextBytes plainText else Error()
 let generateKeyPair() =
     let publicKey = Array.zeroCreate publicKeyLength
     let secretKey = Array.zeroCreate secretKeyLength
+    let secret = new Secret(secretKey)
     let result = Interop.crypto_box_keypair(publicKey, secretKey)
     if result = 0
-    then SecretKeyBytes secretKey, PublicKeyBytes publicKey
-    else CryptographicException("Encryption key generation failed. This should not happen. Please report this error.")
-         |> raise
+    then SecretKeySecret secret, PublicKeyBytes publicKey
+    else
+        (secret :> IDisposable).Dispose()
+        CryptographicException("Encryption key generation failed. This should not happen. Please report this error.")
+        |> raise
 let generateNonce() = Random.bytes nonceLength |> NonceBytes
