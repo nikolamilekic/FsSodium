@@ -1,5 +1,6 @@
 module FsSodium.SecretKeyEncryption
 
+open System
 open System.Security.Cryptography
 
 type Key = private KeySecret of Secret
@@ -53,3 +54,10 @@ let generateKey() =
     Interop.crypto_secretbox_keygen(key)
     KeySecret secret
 let generateNonce() = Random.bytes nonceLength |> NonceBytes
+let generateKeyFromPassword parameters password =
+    let key = Array.zeroCreate keyLength
+    let secret = new Secret(key)
+    PasswordHashing.hashPassword parameters password key
+    |> Result.either
+        (fun _ -> Ok <| KeySecret secret)
+        (fun _ -> (secret :> IDisposable).Dispose(); Error ())
