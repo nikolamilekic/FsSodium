@@ -1,9 +1,8 @@
 module FsSodium.PasswordHashing
 
-open System
-
 type Salt = private SaltBytes of byte[]
-let private saltLength = 16
+let private saltLength = Interop.crypto_pwhash_saltbytes()
+let defaultAlgorithm = Interop.crypto_pwhash_alg_default()
 
 let generateSalt () = Random.bytes saltLength |> SaltBytes
 

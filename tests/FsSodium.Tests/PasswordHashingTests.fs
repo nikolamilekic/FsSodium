@@ -15,7 +15,7 @@ let passwordHashingTests =
             let parameters = {
                 NumberOfOperations = 1
                 Memory = 8192
-                Algorithm = 2
+                Algorithm = defaultAlgorithm
                 Salt = generateSalt ()
             }
             let password = Random.bytes 16
@@ -31,7 +31,7 @@ let passwordHashingTests =
                 let parameters = {
                     NumberOfOperations = 1
                     Memory = 8192
-                    Algorithm = 2
+                    Algorithm = defaultAlgorithm
                     Salt = generateSalt ()
                 }
                 let key = Array.zeroCreate 16

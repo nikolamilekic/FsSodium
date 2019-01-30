@@ -8,10 +8,10 @@ type PublicKey = private PublicKeyBytes of byte[]
 type Nonce = private NonceBytes of byte[]
 type CipherText = { CipherTextBytes : byte[]; Nonce : Nonce }
 
-let private publicKeyLength = 32;
-let private secretKeyLength = 32;
-let private nonceLength = 24;
-let private macLength = 16;
+let private publicKeyLength = Interop.crypto_box_publickeybytes()
+let private secretKeyLength = Interop.crypto_box_secretkeybytes()
+let private nonceLength = Interop.crypto_box_noncebytes()
+let private macLength = Interop.crypto_box_macbytes()
 
 let encrypt
     (SecretKeySecret senderKey)

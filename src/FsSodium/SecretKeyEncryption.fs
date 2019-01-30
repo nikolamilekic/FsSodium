@@ -6,9 +6,9 @@ type Key = private KeySecret of Secret
 type Nonce = private NonceBytes of byte[]
 type CipherText = { CipherTextBytes : byte[]; Nonce : Nonce }
 
-let private keyLength = 32;
-let private nonceLength = 24;
-let private macLength = 16;
+let private keyLength = Interop.crypto_secretbox_keybytes()
+let private nonceLength = Interop.crypto_secretbox_noncebytes()
+let private macLength = Interop.crypto_secretbox_macbytes()
 
 let encrypt
     (KeySecret key)

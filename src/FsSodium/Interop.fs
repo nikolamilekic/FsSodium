@@ -10,6 +10,15 @@ let Name = "libsodium"
 extern int sodium_init()
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_sign_publickeybytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_sign_secretkeybytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_sign_bytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_sign(
     byte[] signedText,
     IntPtr signedTextLength,
@@ -27,6 +36,18 @@ extern int crypto_sign_open(
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_sign_keypair(byte[] publicKey, byte[] secretKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_publickeybytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_secretkeybytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_macbytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_noncebytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_box_easy(
@@ -68,6 +89,12 @@ extern void sodium_memzero(
     int length);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_pwhash_alg_default();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_pwhash_saltbytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_pwhash(
     byte[] key,
     int64 keyLength,
@@ -77,6 +104,15 @@ extern int crypto_pwhash(
     int64 maxNumberOfOperations,
     int maxAmountOfMemoryToUse,
     int algorithm);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretbox_keybytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretbox_macbytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretbox_noncebytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_secretbox_easy(

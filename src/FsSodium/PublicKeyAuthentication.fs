@@ -7,9 +7,9 @@ type SignedText = SignedTextBytes of byte[]
 type SecretKey = private SecretKeySecret of Secret
 type PublicKey = private PublicKeyBytes of byte[]
 
-let private signatureLength = 64
-let private publicKeyLength = 32
-let private secretKeyLength = 64
+let private signatureLength = Interop.crypto_sign_bytes()
+let private publicKeyLength = Interop.crypto_sign_publickeybytes()
+let private secretKeyLength = Interop.crypto_sign_secretkeybytes()
 
 let sign (SecretKeySecret secret) (PlainTextBytes plainText) =
     let plainTextLength = Array.length plainText
