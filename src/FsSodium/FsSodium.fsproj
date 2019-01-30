@@ -1,10 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="..\..\paket-files\nikolamilekic\fd4db09d755596cc6f845ccf0e2fae44\YoLo.fs" />
+    <Compile Include="../../paket-files/nikolamilekic/fd4db09d755596cc6f845ccf0e2fae44/YoLo.fs" />
     <Compile Include="Interop.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Random.fs" />
@@ -12,6 +13,7 @@
     <Compile Include="PublicKeyAuthentication.fs" />
     <Compile Include="PublicKeyEncryption.fs" />
     <Compile Include="PasswordHashing.fs" />
+    <Compile Include="SecretKeyEncryption.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

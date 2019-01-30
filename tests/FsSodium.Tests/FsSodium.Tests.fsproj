@@ -1,13 +1,9 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>netcoreapp2.0</TargetFramework>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-  </PropertyGroup>
-  <PropertyGroup>
-    <WarningLevel>4</WarningLevel>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../src/FsSodium/FsSodium.fsproj">
@@ -18,6 +14,7 @@
     <Compile Include="PublicKeyAuthenticationTests.fs" />
     <Compile Include="PublicKeyEncryptionTests.fs" />
     <Compile Include="PasswordHashingTests.fs" />
+    <Compile Include="SecretKeyEncryptionTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

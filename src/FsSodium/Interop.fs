@@ -77,3 +77,22 @@ extern int crypto_pwhash(
     int64 maxNumberOfOperations,
     int maxAmountOfMemoryToUse,
     int algorithm);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretbox_easy(
+    byte[] cipherText,
+    byte[] plainText,
+    int64 plainTextLength,
+    byte[] nonce,
+    byte[] key);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretbox_open_easy(
+    byte[] plainText,
+    byte[] cipherText,
+    int64 cipherTextLength,
+    byte[] nonce,
+    byte[] key);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern void crypto_secretbox_keygen(byte[] key);
