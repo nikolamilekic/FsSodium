@@ -6,15 +6,15 @@ let defaultAlgorithm = Interop.crypto_pwhash_alg_default()
 
 let generateSalt () = Random.bytes saltLength |> SaltBytes
 
-type HashPasswordSettings = {
+type HashPasswordParameters = {
     NumberOfOperations : int
     Memory : int
     Algorithm : int
     Salt : Salt
 }
 
-let hashPassword settings password output =
-    let (SaltBytes salt) = settings.Salt
+let hashPassword parameters password output =
+    let (SaltBytes salt) = parameters.Salt
     let result =
         Interop.crypto_pwhash(
             output,
@@ -22,7 +22,7 @@ let hashPassword settings password output =
             password,
             (int64 <| Array.length password),
             salt,
-            (int64 settings.NumberOfOperations),
-            settings.Memory,
-            settings.Algorithm)
+            (int64 parameters.NumberOfOperations),
+            parameters.Memory,
+            parameters.Algorithm)
     if result = 0 then Ok () else Error ()
