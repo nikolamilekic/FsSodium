@@ -2,7 +2,6 @@ module FsSodium.Tests.PublicKeyEncryptionTests
 
 open Expecto
 open Swensen.Unquote
-open Milekic.YoLo
 
 open FsSodium
 open PublicKeyEncryption
