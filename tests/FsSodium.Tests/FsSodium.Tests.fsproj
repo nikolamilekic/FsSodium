@@ -15,6 +15,7 @@
     <Compile Include="PublicKeyEncryptionTests.fs" />
     <Compile Include="PasswordHashingTests.fs" />
     <Compile Include="SecretKeyEncryptionTests.fs" />
+    <Compile Include="StreamEncryptionTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

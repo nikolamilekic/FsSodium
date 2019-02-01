@@ -3,6 +3,19 @@ module internal FsSodium.Interop
 open System
 open System.Runtime.InteropServices
 
+[<StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)>]
+type crypto_secretstream_xchacha20poly1305_state =
+    struct
+        [<MarshalAs(UnmanagedType.ByValArray, SizeConst = 32)>]
+        val k : byte[]
+
+        [<MarshalAs(UnmanagedType.ByValArray, SizeConst = 12)>]
+        val nonce : byte[]
+
+        [<MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)>]
+        val _pad : byte[]
+    end
+
 [<Literal>]
 let Name = "libsodium"
 
@@ -132,3 +145,55 @@ extern int crypto_secretbox_open_easy(
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern void crypto_secretbox_keygen(byte[] key);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_keybytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_headerbytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_abytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_tag_message();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_tag_final();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_push(
+    crypto_secretstream_xchacha20poly1305_state& state,
+    byte[] cipherText,
+    IntPtr cipherTextLength,
+    byte[] plainText,
+    int64 plainTextLength,
+    byte[] additionalData,
+    int64 additionalDataLength,
+    byte tag);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_pull(
+    crypto_secretstream_xchacha20poly1305_state& state,
+    byte[] plainText,
+    IntPtr plainTextLength,
+    byte& tag,
+    byte[] cipherText,
+    int64 cipherTextLength,
+    byte[] additionalData,
+    int64 additionalDataLength);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_init_pull(
+    crypto_secretstream_xchacha20poly1305_state& state,
+    byte[] header,
+    byte[] key);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_init_push(
+    crypto_secretstream_xchacha20poly1305_state& state,
+    byte[] header,
+    byte[] key);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern void crypto_secretstream_xchacha20poly1305_keygen(byte[] key);
