@@ -25,7 +25,7 @@ let publicKeyAuthenticationTests =
             let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
             let (SignedTextBytes signedBytes) as signedText =
                 signWithFixture plainText
-            signedBytes.[0] <- signedBytes.[1]
+            signedBytes.[0] <- if signedBytes.[0] = 0uy then 1uy else 0uy
             verify publicKey signedText =! Error()
         yield testCase "Verify fails for modified message" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes

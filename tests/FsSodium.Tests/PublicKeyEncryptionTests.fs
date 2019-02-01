@@ -33,7 +33,7 @@ let publicKeyAuthenticationTests =
             let nonce = generateNonce()
             let { CipherTextBytes = cipherTextBytes } as cipherText =
                 uncurry encrypt keyPair (nonce, plainText)
-            cipherTextBytes.[0] <- cipherTextBytes.[1]
+            cipherTextBytes.[0] <- if cipherTextBytes.[0] = 0uy then 1uy else 0uy
             uncurry decrypt keyPair cipherText =! Error()
         yield testCase "Decrypt fails with modified nonce" <| fun () ->
             let keyPair = generateKeyPair()

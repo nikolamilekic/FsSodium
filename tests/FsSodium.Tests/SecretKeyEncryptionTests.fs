@@ -9,7 +9,7 @@ open SecretKeyEncryption
 do Sodium.initialize()
 
 [<Tests>]
-let secretKeyAuthenticationTests =
+let tests =
     testList "SecretKeyEncryption" [
         yield testCase "Roundtrip works" <| fun () ->
             let key = generateKey()
@@ -24,7 +24,7 @@ let secretKeyAuthenticationTests =
             let nonce = generateNonce()
             let { CipherTextBytes = cipherTextBytes } as cipherText =
                 encrypt key (nonce, plainText)
-            cipherTextBytes.[0] <- cipherTextBytes.[1]
+            cipherTextBytes.[0] <- if cipherTextBytes.[0] = 0uy then 1uy else 0uy
             decrypt key cipherText =! Error()
         yield testCase "Decrypt fails with modified nonce" <| fun () ->
             let key = generateKey()
