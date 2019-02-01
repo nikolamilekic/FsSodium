@@ -1,5 +1,7 @@
 module FsSodium.PasswordHashing
 
+open System
+
 type Salt = private SaltBytes of byte[]
 let private saltLength = Interop.crypto_pwhash_saltbytes()
 let defaultAlgorithm = Interop.crypto_pwhash_alg_default()
@@ -13,16 +15,20 @@ type HashPasswordParameters = {
     Salt : Salt
 }
 
-let hashPassword parameters password output =
+let hashPassword keySize parameters password =
     let (SaltBytes salt) = parameters.Salt
+    let key = Array.zeroCreate keySize
+    let secret = new Secret(key)
     let result =
         Interop.crypto_pwhash(
-            output,
-            (int64 <| Array.length output),
+            key,
+            (int64 <| keySize),
             password,
             (int64 <| Array.length password),
             salt,
             (int64 parameters.NumberOfOperations),
             parameters.Memory,
             parameters.Algorithm)
-    if result = 0 then Ok () else Error ()
+    if result = 0
+    then Ok secret
+    else (secret :> IDisposable).Dispose(); Error ()

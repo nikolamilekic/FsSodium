@@ -20,10 +20,9 @@ let passwordHashingTests =
             }
             let password = Random.bytes 16
             let go () =
-                let key = Array.zeroCreate 16
-                hashPassword parameters password key
+                hashPassword 16 parameters password
                 |> Result.failOnError "Hash could not be done"
-                key
+                |> fun x -> x.Secret
             go() =! go()
         yield testCase "Hasing with different parameters leads to different results" <| fun () ->
             let password = Random.bytes 16
@@ -34,9 +33,8 @@ let passwordHashingTests =
                     Algorithm = defaultAlgorithm
                     Salt = generateSalt ()
                 }
-                let key = Array.zeroCreate 16
-                hashPassword parameters password key
+                hashPassword 16 parameters password
                 |> Result.failOnError "Hash could not be done"
-                key
+                |> fun x -> x.Secret
             go() <>! go()
     ]
