@@ -2,6 +2,7 @@ namespace FsSodium
 
 open System
 open System.Runtime.Serialization
+open Milekic.YoLo
 
 type Secret(secret) =
     static let secretName = nameOf <@ instanceOf<Secret>.Secret @>

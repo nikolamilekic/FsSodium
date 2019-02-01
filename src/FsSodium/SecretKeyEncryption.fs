@@ -3,6 +3,8 @@ module FsSodium.SecretKeyEncryption
 open System
 open System.Security.Cryptography
 
+open Milekic.YoLo
+
 type Key = private KeySecret of Secret
 type Nonce = private NonceBytes of byte[]
 type CipherText = { CipherTextBytes : byte[]; Nonce : Nonce }

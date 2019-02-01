@@ -2,9 +2,9 @@ source https://www.nuget.org/api/v2
 source https://ci.appveyor.com/nuget/milekic-yolo
 
 nuget FSharp.Core redirects: force
-nuget Expecto = 7.0.1
+nuget Expecto
 nuget Expecto.BenchmarkDotNet
 nuget Expecto.FsCheck
 nuget Unquote
 nuget libsodium
-nuget Milekic.YoLo
+nuget Milekic.YoLo prerelease

@@ -2,6 +2,7 @@ module FsSodium.Tests.PasswordHashingTests
 
 open Expecto
 open Swensen.Unquote
+open Milekic.YoLo
 
 open FsSodium
 open FsSodium.PasswordHashing
