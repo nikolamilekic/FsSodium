@@ -16,7 +16,7 @@ let private macLength = Interop.crypto_box_macbytes()
 let encrypt
     (SecretKeySecret senderKey)
     (PublicKeyBytes recipientKey)
-    ((NonceBytes nonceBytes) as nonce, (PlainTextBytes plainText)) =
+    ((NonceBytes nonceBytes) as nonce, (PlainText plainText)) =
 
     let plainTextLength = Array.length plainText
     let cipherTextLength = macLength + plainTextLength
@@ -53,7 +53,7 @@ let decrypt
             senderKey,
             recipientKey.Secret)
 
-    if result = 0 then Ok <| PlainTextBytes plainText else Error()
+    if result = 0 then Ok <| PlainText plainText else Error()
 let generateKeyPair() =
     let publicKey = Array.zeroCreate publicKeyLength
     let secretKey = Array.zeroCreate secretKeyLength

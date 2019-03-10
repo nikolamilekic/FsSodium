@@ -11,7 +11,7 @@ let private signatureLength = Interop.crypto_sign_bytes()
 let private publicKeyLength = Interop.crypto_sign_publickeybytes()
 let private secretKeyLength = Interop.crypto_sign_secretkeybytes()
 
-let sign (SecretKeySecret secret) (PlainTextBytes plainText) =
+let sign (SecretKeySecret secret) (PlainText plainText) =
     let plainTextLength = Array.length plainText
     let signedText = Array.zeroCreate (plainTextLength + signatureLength)
     let result =
@@ -35,7 +35,7 @@ let verify (PublicKeyBytes key) (SignedTextBytes signedText) =
             signedText,
             int64 signedTextLength,
             key)
-    if result = 0 then Ok <| PlainTextBytes plainText else Error()
+    if result = 0 then Ok <| PlainText plainText else Error()
 let generateKeyPair() =
     let publicKey = Array.zeroCreate publicKeyLength
     let secretKey = Array.zeroCreate secretKeyLength

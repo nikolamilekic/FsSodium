@@ -17,24 +17,24 @@ let verifyWithFixture = verify publicKey >> Result.failOnError "verify failed"
 let publicKeyAuthenticationTests =
     testList "PublicKeyAuthenticaion" [
         yield testCase "Verify works for unmodified message" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
             let signedText = signWithFixture plainText
             let verifiedPlainText = verifyWithFixture signedText
             verifiedPlainText =! plainText
         yield testCase "Verify fails for modified signature" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
             let (SignedTextBytes signedBytes) as signedText =
                 signWithFixture plainText
             signedBytes.[0] <- if signedBytes.[0] = 0uy then 1uy else 0uy
             verify publicKey signedText =! Error()
         yield testCase "Verify fails for modified message" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
             let (SignedTextBytes signedBytes) as signedText =
                 signWithFixture plainText
             signedBytes.[Array.length signedBytes - 1] <- 4uy
             verify publicKey signedText =! Error()
         yield testCase "Verify fails for wrong key" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
             let signedText = signWithFixture plainText
             let _, pkEve
              = generateKeyPair()

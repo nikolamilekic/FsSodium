@@ -12,7 +12,7 @@ do Sodium.initialize()
 let stream =
     Seq.init 10 byte
     |> Seq.chunkBySize 3
-    |> Seq.map PlainTextBytes
+    |> Seq.map PlainText
     |> Seq.toList
 
 let encrypt key (parts : _ seq) =

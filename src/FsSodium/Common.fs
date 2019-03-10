@@ -1,6 +1,6 @@
 namespace FsSodium
 
-type PlainText = PlainTextBytes of byte[]
+type PlainText = PlainText of byte[]
 
 module Sodium =
     let initialize() =

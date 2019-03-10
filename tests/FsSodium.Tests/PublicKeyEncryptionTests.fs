@@ -14,7 +14,7 @@ let publicKeyAuthenticationTests =
     testList "PublicKeyEncryption" [
         yield testCase "Roundtrip works" <| fun () ->
             let keyPair = generateKeyPair()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
             let nonce = generateNonce()
             uncurry encrypt keyPair (nonce, plainText)
             |> uncurry decrypt keyPair
@@ -23,13 +23,13 @@ let publicKeyAuthenticationTests =
             let alice = generateKeyPair()
             let bob = generateKeyPair()
             let nonce = generateNonce()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
             encrypt (fst alice) (snd bob) (nonce, plainText)
             |> decrypt (fst bob) (snd alice)
             =! Ok plainText
         yield testCase "Decrypt fails with modified cipher text" <| fun () ->
             let keyPair = generateKeyPair()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
             let nonce = generateNonce()
             let { CipherTextBytes = cipherTextBytes } as cipherText =
                 uncurry encrypt keyPair (nonce, plainText)
@@ -37,7 +37,7 @@ let publicKeyAuthenticationTests =
             uncurry decrypt keyPair cipherText =! Error()
         yield testCase "Decrypt fails with modified nonce" <| fun () ->
             let keyPair = generateKeyPair()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
             let nonce1 = generateNonce()
             let nonce2 = generateNonce()
             let cipherText = uncurry encrypt keyPair (nonce1, plainText)
@@ -46,7 +46,7 @@ let publicKeyAuthenticationTests =
             =! Error()
         yield testCase "Decrypt fails with wrong key" <| fun () ->
             let keyPair = generateKeyPair()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainTextBytes
+            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
             let nonce = generateNonce()
             let secretKeyEve, _ = generateKeyPair()
             uncurry encrypt keyPair (nonce, plainText)

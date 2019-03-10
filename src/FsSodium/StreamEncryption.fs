@@ -18,7 +18,7 @@ type StreamEncryptionState =
 type MessageType = NotLast | Last
 type CipherText = CipherTextBytes of byte[]
 
-let encryptPart (State state) ((PlainTextBytes plainText), messageType) =
+let encryptPart (State state) ((PlainText plainText), messageType) =
     let plainTextLength = Array.length plainText
     let cipherTextLength = plainTextLength + additionalBytes
     let cipherText = Array.zeroCreate cipherTextLength
@@ -67,7 +67,7 @@ let decryptPart (State state) (CipherTextBytes cipherText) =
                   | x when x = lastTag -> Last
                   | _ -> CryptographicException("Received an unexpected tag")
                          |> raise
-        Ok <| (PlainTextBytes plainText, tag, State s)
+        Ok <| (PlainText plainText, tag, State s)
     else Error()
 
 type Key = private KeySecret of Secret
