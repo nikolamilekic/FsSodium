@@ -83,7 +83,7 @@ extern int crypto_box_open_easy(
 extern int crypto_box_keypair(byte[] publicKey, byte[] secretKey);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern void randombytes_buf(byte[] buffer, uint64 bufferSize);
+extern void randombytes_buf(byte[] buffer, uint64 bufferLength);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int sodium_mlock(

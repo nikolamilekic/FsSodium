@@ -21,31 +21,31 @@ type NumberOfOperations = private NumberOfOperations of uint64
 type Algorithm = private Algorithm of int
     with static member Default = Interop.crypto_pwhash_alg_default() |> Algorithm
 
-module internal MemorySize =
+module internal MemoryLimit =
     let maximum = Interop.crypto_pwhash_memlimit_max() |> capToInt
     let minimum = Interop.crypto_pwhash_memlimit_min() |> capToInt
-[<Description("Memory size")>]
-type MemorySize = private MemorySize of uint64
+[<Description("Memory limit")>]
+type MemoryLimit = private MemoryLimit of uint64
     with
-        static member Maximum = MemorySize.maximum
-        static member Minimum = MemorySize.minimum
-        static member Create = validateRange (uint64 >> MemorySize)
+        static member Maximum = MemoryLimit.maximum
+        static member Minimum = MemoryLimit.minimum
+        static member Create = validateRange (uint64 >> MemoryLimit)
 
 type HashPasswordParameters = {
     NumberOfOperations : NumberOfOperations
-    MemorySize : MemorySize
+    MemoryLimit : MemoryLimit
     Algorithm : Algorithm
     Salt : Salt
 }
 
-module internal KeySize =
+module internal KeyLength =
     let maximum = Interop.crypto_pwhash_bytes_max() |> capToInt
     let minimum = Interop.crypto_pwhash_bytes_min() |> capToInt
-type KeySize = private KeySize of int
+type KeyLength = private KeyLength of int
     with
-        static member Maximum = KeySize.maximum
-        static member Minimum = KeySize.minimum
-        static member Create = validateRange KeySize
+        static member Maximum = KeyLength.maximum
+        static member Minimum = KeyLength.minimum
+        static member Create = validateRange KeyLength
 
 module internal Password =
     let minimumLength = Interop.crypto_pwhash_passwd_min() |> capToInt
@@ -65,19 +65,19 @@ type Password private (secret) =
         |> Trial.failureTee (ignore >> password.Dispose)
 
 let hashPassword
-    (KeySize keySize)
+    (KeyLength keyLength)
     {
         Salt = (Salt salt)
         Algorithm = (Algorithm algorithm)
         NumberOfOperations = (NumberOfOperations operations)
-        MemorySize = (MemorySize memory)
+        MemoryLimit = (MemoryLimit memory)
     }
     (password : Password) =
-    let secret = new Secret(Array.zeroCreate keySize)
+    let secret = new Secret(Array.zeroCreate keyLength)
     let result =
         Interop.crypto_pwhash(
             secret.Secret,
-            (uint64 keySize),
+            (uint64 keyLength),
             password.Secret,
             (Array.length password.Secret |> uint64),
             salt,

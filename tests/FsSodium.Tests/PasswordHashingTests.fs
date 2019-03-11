@@ -15,16 +15,16 @@ let passwordHashingTests =
         yield testCase "Hasing with same parameters leads to same results" <| fun () ->
             trial {
                 let! operations = NumberOfOperations.Create 1
-                let! memory = MemorySize.Create 8192
+                let! memory = MemoryLimit.Create 8192
                 let parameters = {
                     NumberOfOperations = operations
-                    MemorySize = memory
+                    MemoryLimit = memory
                     Algorithm = Algorithm.Default
                     Salt = Salt.Generate()
                 }
-                let! keySize = KeySize.Create 16
+                let! keyLength = KeyLength.Create 16
                 let! password = Random.bytes 16 |> Password.CreateDisposable
-                let go () = hashPassword keySize parameters password
+                let go () = hashPassword keyLength parameters password
                 let! first = go()
                 let! second = go()
                 first.Secret =! second.Secret
@@ -36,15 +36,15 @@ let passwordHashingTests =
                 let! password = Random.bytes 16 |> Password.CreateDisposable
                 let go () = trial {
                     let! operations = NumberOfOperations.Create 1
-                    let! memory = MemorySize.Create 8192
+                    let! memory = MemoryLimit.Create 8192
                     let parameters = {
                         NumberOfOperations = operations
-                        MemorySize = memory
+                        MemoryLimit = memory
                         Algorithm = Algorithm.Default
                         Salt = Salt.Generate()
                     }
-                    let! keySize = KeySize.Create 16
-                    return! hashPassword keySize parameters password
+                    let! keyLength = KeyLength.Create 16
+                    return! hashPassword keyLength parameters password
                 }
                 let! first = go()
                 let! second = go()
