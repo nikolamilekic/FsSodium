@@ -84,7 +84,7 @@ extern int crypto_box_open_easy(
 extern int crypto_box_keypair(byte[] publicKey, byte[] secretKey);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern void randombytes_buf(byte[] buffer, int64 bufferSize);
+extern void randombytes_buf(byte[] buffer, uint64 bufferSize);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int sodium_mlock(
@@ -108,14 +108,39 @@ extern int crypto_pwhash_alg_default();
 extern int crypto_pwhash_saltbytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+
+extern uint64 crypto_pwhash_opslimit_min();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_opslimit_max();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_memlimit_max();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_memlimit_min();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_bytes_min();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_bytes_max();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_passwd_min();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_passwd_max();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_pwhash(
     byte[] key,
-    int64 keyLength,
+    uint64 keyLength,
     byte[] password,
-    int64 passwordLength,
+    uint64 passwordLength,
     byte[] salt,
-    int64 maxNumberOfOperations,
-    int maxAmountOfMemoryToUse,
+    uint64 maxNumberOfOperations,
+    uint64 maxAmountOfMemoryToUse,
     int algorithm);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]

@@ -8,3 +8,4 @@ nuget Expecto.FsCheck
 nuget Unquote
 nuget libsodium
 nuget Milekic.YoLo prerelease
+nuget Chessie

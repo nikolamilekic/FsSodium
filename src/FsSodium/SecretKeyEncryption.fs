@@ -56,7 +56,7 @@ let generateKey() =
     Interop.crypto_secretbox_keygen(key)
     KeySecret secret
 let generateNonce() = Random.bytes nonceLength |> NonceBytes
-let generateKeyFromPassword =
-    uncurry (PasswordHashing.hashPassword keyLength)
-    >> Result.map KeySecret
-    |> curry
+// let generateKeyFromPassword =
+//     uncurry (PasswordHashing.hashPassword keyLength)
+//     >> Result.map KeySecret
+//     |> curry

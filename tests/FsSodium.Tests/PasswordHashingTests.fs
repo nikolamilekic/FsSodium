@@ -3,7 +3,7 @@ module FsSodium.Tests.PasswordHashingTests
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
-
+open Chessie.ErrorHandling
 open FsSodium
 open FsSodium.PasswordHashing
 
@@ -13,29 +13,42 @@ do Sodium.initialize()
 let passwordHashingTests =
     testList "PasswordHashing" [
         yield testCase "Hasing with same parameters leads to same results" <| fun () ->
-            let parameters = {
-                NumberOfOperations = 1
-                Memory = 8192
-                Algorithm = defaultAlgorithm
-                Salt = generateSalt ()
-            }
-            let password = Random.bytes 16
-            let go () =
-                hashPassword 16 parameters password
-                |> Result.failOnError "Hash could not be done"
-                |> fun x -> x.Secret
-            go() =! go()
-        yield testCase "Hasing with different parameters leads to different results" <| fun () ->
-            let password = Random.bytes 16
-            let go () =
+            trial {
+                let! operations = NumberOfOperations.Create 1
+                let! memory = MemorySize.Create 8192
                 let parameters = {
-                    NumberOfOperations = 1
-                    Memory = 8192
-                    Algorithm = defaultAlgorithm
-                    Salt = generateSalt ()
+                    NumberOfOperations = operations
+                    MemorySize = memory
+                    Algorithm = Algorithm.Default
+                    Salt = Salt.Generate()
                 }
-                hashPassword 16 parameters password
-                |> Result.failOnError "Hash could not be done"
-                |> fun x -> x.Secret
-            go() <>! go()
+                let! keySize = KeySize.Create 16
+                let! password = Random.bytes 16 |> Password.CreateDisposable
+                let go () = hashPassword keySize parameters password
+                let! first = go()
+                let! second = go()
+                first.Secret =! second.Secret
+            }
+            |> fun x -> trap <@ returnOrFail x @>
+
+        yield testCase "Hasing with different parameters leads to different results" <| fun () ->
+            trial {
+                let! password = Random.bytes 16 |> Password.CreateDisposable
+                let go () = trial {
+                    let! operations = NumberOfOperations.Create 1
+                    let! memory = MemorySize.Create 8192
+                    let parameters = {
+                        NumberOfOperations = operations
+                        MemorySize = memory
+                        Algorithm = Algorithm.Default
+                        Salt = Salt.Generate()
+                    }
+                    let! keySize = KeySize.Create 16
+                    return! hashPassword keySize parameters password
+                }
+                let! first = go()
+                let! second = go()
+                first.Secret <>! second.Secret
+            }
+            |> fun x -> trap <@ returnOrFail x @>
     ]

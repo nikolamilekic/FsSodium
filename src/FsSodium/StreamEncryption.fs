@@ -98,7 +98,7 @@ let generateKey() =
     let secret = new Secret(key)
     Interop.crypto_secretstream_xchacha20poly1305_keygen(key)
     KeySecret secret
-let generateKeyFromPassword =
-    uncurry (PasswordHashing.hashPassword keyLength)
-    >> Result.map KeySecret
-    |> curry
+// let generateKeyFromPassword =
+//     uncurry (PasswordHashing.hashPassword keyLength)
+//     >> Result.map KeySecret
+//     |> curry
