@@ -27,7 +27,7 @@ let passwordHashingTests =
                 let go () = hashPassword keyLength parameters password
                 let! first = go()
                 let! second = go()
-                first.Secret =! second.Secret
+                first =! second
             }
             |> fun x -> trap <@ returnOrFail x @>
 
@@ -48,7 +48,7 @@ let passwordHashingTests =
                 }
                 let! first = go()
                 let! second = go()
-                first.Secret <>! second.Secret
+                first <>! second
             }
             |> fun x -> trap <@ returnOrFail x @>
     ]

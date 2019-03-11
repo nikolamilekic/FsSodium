@@ -2,45 +2,41 @@ module FsSodium.Tests.SecretKeyEncryptionTests
 
 open Expecto
 open Swensen.Unquote
-
+open Chessie.ErrorHandling
 open FsSodium
 open SecretKeyEncryption
 
 do Sodium.initialize()
 
+let alice = Key.GenerateDisposable()
+let eve = Key.GenerateDisposable()
+
 [<Tests>]
 let tests =
     testList "SecretKeyEncryption" [
         yield testCase "Roundtrip works" <| fun () ->
-            let key = generateKey()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let nonce = generateNonce()
-            encrypt key (nonce, plainText)
-            |> decrypt key
-            =! Ok plainText
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce = Nonce.Generate()
+            encrypt alice nonce plainText
+            |> decrypt alice nonce
+            =! ok plainText
         yield testCase "Decrypt fails with modified cipher text" <| fun () ->
-            let key = generateKey()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let nonce = generateNonce()
-            let { CipherTextBytes = cipherTextBytes } as cipherText =
-                encrypt key (nonce, plainText)
-            cipherTextBytes.[0] <- if cipherTextBytes.[0] = 0uy then 1uy else 0uy
-            decrypt key cipherText =! Error()
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce = Nonce.Generate()
+            let cipherText = encrypt alice nonce plainText
+            cipherText.[0] <- if cipherText.[0] = 0uy then 1uy else 0uy
+            decrypt alice nonce cipherText |> failed =! true
         yield testCase "Decrypt fails with modified nonce" <| fun () ->
-            let key = generateKey()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let nonce1 = generateNonce()
-            let nonce2 = generateNonce()
-            let cipherText = encrypt key (nonce1, plainText)
-            { cipherText with Nonce = nonce2 }
-            |> decrypt key
-            =! Error()
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce1 = Nonce.Generate()
+            let nonce2 = Nonce.Generate()
+            encrypt alice nonce1 plainText
+            |> decrypt alice nonce2
+            |> failed =! true
         yield testCase "Decrypt fails with wrong key" <| fun () ->
-            let key = generateKey()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let nonce = generateNonce()
-            let eveKey = generateKey()
-            encrypt key (nonce, plainText)
-            |> decrypt eveKey
-            =! Error()
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce = Nonce.Generate()
+            encrypt alice nonce plainText
+            |> decrypt eve nonce
+            |> failed =! true
     ]

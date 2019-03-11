@@ -73,10 +73,10 @@ let hashPassword
         MemoryLimit = (MemoryLimit memory)
     }
     (password : Password) =
-    let secret = new Secret(Array.zeroCreate keyLength)
+    let secret = Array.zeroCreate keyLength
     let result =
         Interop.crypto_pwhash(
-            secret.Secret,
+            secret,
             (uint64 keyLength),
             password.Secret,
             (Array.length password.Secret |> uint64),
@@ -87,6 +87,5 @@ let hashPassword
     if result = 0
     then ok secret
     else
-        secret.Dispose()
         sprintf "Libsodium could not hash password but instead returned with error code %d. This probably happened because not enough memory could be allocated." result
         |> fail
