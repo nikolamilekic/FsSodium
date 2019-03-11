@@ -3,41 +3,38 @@ module FsSodium.Tests.PublicKeyAuthenticationTests
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
-
+open Chessie.ErrorHandling
 open FsSodium
 open PublicKeyAuthentication
 
 do Sodium.initialize()
 
-let secretKey, publicKey = generateKeyPair()
+let secretKey = SecretKey.CreateDisposable()
 let signWithFixture = sign secretKey
-let verifyWithFixture = verify publicKey >> Result.failOnError "verify failed"
+let verifyWithFixture =
+    uncurry <| verify (secretKey.PublicKey) >> failed >> not
+    |> curry
 
 [<Tests>]
 let publicKeyAuthenticationTests =
     testList "PublicKeyAuthenticaion" [
         yield testCase "Verify works for unmodified message" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let signedText = signWithFixture plainText
-            let verifiedPlainText = verifyWithFixture signedText
-            verifiedPlainText =! plainText
+            let plainText = [|1uy; 2uy; 3uy|]
+            let mac = signWithFixture plainText
+            verifyWithFixture plainText mac =! true
         yield testCase "Verify fails for modified signature" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let (SignedTextBytes signedBytes) as signedText =
-                signWithFixture plainText
-            signedBytes.[0] <- if signedBytes.[0] = 0uy then 1uy else 0uy
-            verify publicKey signedText =! Error()
+            let plainText = [|1uy; 2uy; 3uy|]
+            let mac = signWithFixture plainText
+            mac.[0] <- if mac.[0] = 0uy then 1uy else 0uy
+            verifyWithFixture plainText mac =! false
         yield testCase "Verify fails for modified message" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let (SignedTextBytes signedBytes) as signedText =
-                signWithFixture plainText
-            signedBytes.[Array.length signedBytes - 1] <- 4uy
-            verify publicKey signedText =! Error()
+            let plainText = [|1uy; 2uy; 3uy|]
+            let mac = signWithFixture plainText
+            plainText.[0] <- if plainText.[0] = 0uy then 1uy else 0uy
+            verifyWithFixture plainText mac =! false
         yield testCase "Verify fails for wrong key" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let signedText = signWithFixture plainText
-            let _, pkEve
-             = generateKeyPair()
-            verifyWithFixture signedText |> ignore
-            verify pkEve signedText =! Error()
+            let plainText = [|1uy; 2uy; 3uy|]
+            let mac = signWithFixture plainText
+            let pkEve = SecretKey.CreateDisposable().PublicKey
+            verify pkEve plainText mac |> failed =! true
     ]

@@ -32,19 +32,18 @@ extern int crypto_sign_secretkeybytes();
 extern int crypto_sign_bytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_sign(
-    byte[] signedText,
-    IntPtr signedTextLength,
+extern int crypto_sign_detached(
+    byte[] tag,
+    IntPtr tagLength,
     byte[] plainText,
     int64 plainTextLength,
     byte[] secretKey)
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_sign_open(
+extern int crypto_sign_verify_detached(
+    byte[] tag,
     byte[] plainText,
-    IntPtr plainTextLength,
-    byte[] signedText,
-    int64 signedTextLength,
+    int64 plainTextLength,
     byte[] publicKey)
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
