@@ -3,53 +3,50 @@ module FsSodium.Tests.PublicKeyEncryptionTests
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
-
+open Chessie.ErrorHandling
 open FsSodium
 open PublicKeyEncryption
 
 do Sodium.initialize()
 
+let alice = SecretKey.GenerateDisposable()
+let bob = SecretKey.GenerateDisposable()
+let eve = SecretKey.GenerateDisposable()
+
 [<Tests>]
 let publicKeyAuthenticationTests =
     testList "PublicKeyEncryption" [
         yield testCase "Roundtrip works" <| fun () ->
-            let keyPair = generateKeyPair()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let nonce = generateNonce()
-            uncurry encrypt keyPair (nonce, plainText)
-            |> uncurry decrypt keyPair
-            =! Ok plainText
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce = Nonce.Generate()
+            encrypt alice alice.PublicKey nonce plainText
+            |> decrypt alice alice.PublicKey nonce
+            =! ok plainText
         yield testCase "Alice and bob roundtrip works" <| fun () ->
-            let alice = generateKeyPair()
-            let bob = generateKeyPair()
-            let nonce = generateNonce()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            encrypt (fst alice) (snd bob) (nonce, plainText)
-            |> decrypt (fst bob) (snd alice)
-            =! Ok plainText
+            let nonce = Nonce.Generate()
+            let plainText = [|1uy; 2uy; 3uy|]
+            encrypt alice bob.PublicKey nonce plainText
+            |> decrypt bob alice.PublicKey nonce
+            =! ok plainText
         yield testCase "Decrypt fails with modified cipher text" <| fun () ->
-            let keyPair = generateKeyPair()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let nonce = generateNonce()
-            let { CipherTextBytes = cipherTextBytes } as cipherText =
-                uncurry encrypt keyPair (nonce, plainText)
-            cipherTextBytes.[0] <- if cipherTextBytes.[0] = 0uy then 1uy else 0uy
-            uncurry decrypt keyPair cipherText =! Error()
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce = Nonce.Generate()
+            let cipherText =
+                encrypt alice alice.PublicKey nonce plainText
+            cipherText.[0] <- if cipherText.[0] = 0uy then 1uy else 0uy
+            decrypt alice alice.PublicKey nonce cipherText |> failed =! true
         yield testCase "Decrypt fails with modified nonce" <| fun () ->
-            let keyPair = generateKeyPair()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let nonce1 = generateNonce()
-            let nonce2 = generateNonce()
-            let cipherText = uncurry encrypt keyPair (nonce1, plainText)
-            { cipherText with Nonce = nonce2 }
-            |> uncurry decrypt keyPair
-            =! Error()
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce1 = Nonce.Generate()
+            let nonce2 = Nonce.Generate()
+            let cipherText = encrypt alice alice.PublicKey nonce1 plainText
+            decrypt alice alice.PublicKey nonce2 cipherText |> failed
+            =! true
         yield testCase "Decrypt fails with wrong key" <| fun () ->
-            let keyPair = generateKeyPair()
-            let plainText = [|1uy; 2uy; 3uy|] |> PlainText
-            let nonce = generateNonce()
-            let secretKeyEve, _ = generateKeyPair()
-            uncurry encrypt keyPair (nonce, plainText)
-            |> decrypt secretKeyEve (snd keyPair)
-            =! Error()
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce = Nonce.Generate()
+            encrypt alice bob.PublicKey nonce plainText
+            |> decrypt eve alice.PublicKey nonce
+            |> failed
+            =! true
     ]

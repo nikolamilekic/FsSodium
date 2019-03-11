@@ -9,7 +9,7 @@ open PublicKeyAuthentication
 
 do Sodium.initialize()
 
-let secretKey = SecretKey.CreateDisposable()
+let secretKey = SecretKey.GenerateDisposable()
 let signWithFixture = sign secretKey
 let verifyWithFixture =
     uncurry <| verify (secretKey.PublicKey) >> failed >> not
@@ -35,6 +35,6 @@ let publicKeyAuthenticationTests =
         yield testCase "Verify fails for wrong key" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let mac = signWithFixture plainText
-            let pkEve = SecretKey.CreateDisposable().PublicKey
+            let pkEve = SecretKey.GenerateDisposable().PublicKey
             verify pkEve plainText mac |> failed =! true
     ]

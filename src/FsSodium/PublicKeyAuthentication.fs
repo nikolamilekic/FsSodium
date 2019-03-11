@@ -12,7 +12,7 @@ type PublicKey = private PublicKey of byte[]
 type SecretKey private (secretKey, publicKey) =
     inherit Secret(secretKey)
     member __.PublicKey = publicKey
-    static member CreateDisposable() =
+    static member GenerateDisposable() =
         let publicKey = Array.zeroCreate publicKeyLength
         let secretKey = Array.zeroCreate secretKeyLength
         let secret = new SecretKey(secretKey, PublicKey publicKey)
