@@ -2,7 +2,7 @@ module FsSodium.PasswordHashing
 
 open System
 open System.ComponentModel
-open Chessie.ErrorHandling
+open Milekic.YoLo
 
 module internal Salt = let length = Interop.crypto_pwhash_saltbytes()
 type Salt = private Salt of byte[]
@@ -54,15 +54,15 @@ type Password private (secret) =
     inherit Secret(secret)
     static member CreateDisposable secret =
         let password = new Password(secret)
-        trial {
+        result {
             let length = Array.length secret
             if length < Password.minimumLength then
-                return! fail "Password is too short"
-            if length > Password.maximumLength then
-                return! fail "Password is too long"
-            return password
+                return! Error "Password is too short"
+            elif length > Password.maximumLength then
+                return! Error "Password is too long"
+            else return password
         }
-        |> Trial.failureTee (ignore >> password.Dispose)
+        |> Result.either Ok (fun x -> password.Dispose(); Error x)
 
 let hashPassword
     (KeyLength keyLength)
@@ -85,7 +85,7 @@ let hashPassword
             memory,
             algorithm)
     if result = 0
-    then ok secret
+    then Ok secret
     else
         sprintf "Libsodium could not hash password but instead returned with error code %d. This probably happened because not enough memory could be allocated." result
-        |> fail
+        |> Error

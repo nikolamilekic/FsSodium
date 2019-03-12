@@ -2,7 +2,6 @@ module FsSodium.PublicKeyAuthentication
 
 open System
 open System.Security.Cryptography
-open Chessie.ErrorHandling
 
 let private macLength = Interop.crypto_sign_bytes()
 let private publicKeyLength = Interop.crypto_sign_publickeybytes()
@@ -37,7 +36,7 @@ let sign (secretKey : SecretKey) message =
     else CryptographicException("Signing failed. This should not happen. Please report this error.")
          |> raise
 let verify (PublicKey key) message mac =
-    if Array.length mac <> macLength then fail "Mac must be %d bytes long." else
+    if Array.length mac <> macLength then Error "Mac must be %d bytes long." else
     let messageLength = Array.length message
     let result =
         Interop.crypto_sign_verify_detached(
@@ -45,4 +44,4 @@ let verify (PublicKey key) message mac =
             message,
             int64 messageLength,
             key)
-    if result = 0 then ok () else fail "Authentication failed"
+    if result = 0 then Ok () else Error "Authentication failed"

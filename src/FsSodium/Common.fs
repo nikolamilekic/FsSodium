@@ -2,7 +2,7 @@ namespace FsSodium
 
 open System
 open System.ComponentModel
-open Chessie.ErrorHandling
+open Milekic.YoLo.Result.Operators
 
 type PlainText = PlainText of byte[]
 
@@ -27,12 +27,12 @@ module Helpers =
             |> Option.defaultValue (aType.Name)
         let minimumCheck x =
             if x < minimum
-            then fail <| sprintf "%s cannot be less than %A." name minimum
-            else ok x
+            then Error <| sprintf "%s cannot be less than %A." name minimum
+            else Ok x
         let maximumCheck x =
             if x > maximum
-            then fail <| sprintf "%s cannot be bigger than %A." name maximum
-            else ok x
-        minimumCheck x >>= maximumCheck |> Trial.lift ctor
+            then Error <| sprintf "%s cannot be bigger than %A." name maximum
+            else Ok x
+        minimumCheck x >>= maximumCheck >>- ctor
 
     let capToInt x = [ x; Int32.MaxValue |> uint64 ] |> List.min |> int

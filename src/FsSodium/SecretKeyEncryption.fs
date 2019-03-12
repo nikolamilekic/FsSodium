@@ -1,8 +1,8 @@
 module FsSodium.SecretKeyEncryption
 
 open System.Security.Cryptography
-open Chessie.ErrorHandling
 open FsSodium
+open Milekic.YoLo
 
 let private keyLength = Interop.crypto_secretbox_keybytes()
 let private nonceLength = Interop.crypto_secretbox_noncebytes()
@@ -15,12 +15,12 @@ type Key private (key) =
         Interop.crypto_secretbox_keygen(key.Secret)
         key
     static member FromPasswordDisposable(parameters, password) =
-        trial {
+        result {
             let! keyLength = PasswordHashing.KeyLength.Create keyLength
             let! key = PasswordHashing.hashPassword keyLength parameters password
             return new Key(key)
         }
-        |> Trial.returnOrFail
+        |> Result.failOnError "Password could not be hashed. This should not happen. Please report this error."
 type Nonce = private Nonce of byte[]
     with static member Generate() = Random.bytes nonceLength |> Nonce
 let getCipherTextLength plainTextLength = plainTextLength + macLength
@@ -69,8 +69,8 @@ let decryptTo
             nonce,
             key.Secret)
 
-    if result = 0 then ok () else fail "Decryption failed."
-let decrypt key nonce cipherText = trial {
+    if result = 0 then Ok () else Error "Decryption failed."
+let decrypt key nonce cipherText = result {
     let cipherTextLength = Array.length cipherText
     let plainTextLength = getPlainTextLength cipherTextLength
     let plainText = Array.zeroCreate plainTextLength

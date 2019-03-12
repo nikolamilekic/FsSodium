@@ -2,7 +2,7 @@ module FsSodium.PublicKeyEncryption
 
 open System
 open System.Security.Cryptography
-open Chessie.ErrorHandling
+open Milekic.YoLo
 
 let private publicKeyLength = Interop.crypto_box_publickeybytes()
 let private secretKeyLength = Interop.crypto_box_secretkeybytes()
@@ -85,8 +85,8 @@ let decryptTo
             senderKey,
             recipientKey.Secret)
 
-    if result = 0 then ok () else fail "Decryption failed."
-let decrypt recipientKey senderKey nonce cipherText = trial {
+    if result = 0 then Ok () else Error "Decryption failed."
+let decrypt recipientKey senderKey nonce cipherText = result {
     let cipherTextLength = Array.length cipherText
     let plainTextLength = getPlainTextLength cipherTextLength
     let plainText = Array.zeroCreate plainTextLength

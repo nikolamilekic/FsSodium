@@ -3,7 +3,6 @@ module FsSodium.Tests.PublicKeyAuthenticationTests
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
-open Chessie.ErrorHandling
 open FsSodium
 open PublicKeyAuthentication
 
@@ -12,7 +11,7 @@ do Sodium.initialize()
 let secretKey = SecretKey.GenerateDisposable()
 let signWithFixture = sign secretKey
 let verifyWithFixture =
-    uncurry <| verify (secretKey.PublicKey) >> failed >> not
+    uncurry <| verify (secretKey.PublicKey) >> Result.isOk
     |> curry
 
 [<Tests>]
@@ -36,5 +35,5 @@ let publicKeyAuthenticationTests =
             let plainText = [|1uy; 2uy; 3uy|]
             let mac = signWithFixture plainText
             let pkEve = SecretKey.GenerateDisposable().PublicKey
-            verify pkEve plainText mac |> failed =! true
+            verify pkEve plainText mac |> Result.isError =! true
     ]

@@ -3,7 +3,6 @@ module FsSodium.Tests.PasswordHashingTests
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
-open Chessie.ErrorHandling
 open FsSodium
 open FsSodium.PasswordHashing
 
@@ -12,8 +11,8 @@ do Sodium.initialize()
 [<Tests>]
 let passwordHashingTests =
     testList "PasswordHashing" [
-        yield testCase "Hasing with same parameters leads to same results" <| fun () ->
-            trial {
+        yield testCase "Hashing with same parameters leads to same results" <| fun () ->
+            result {
                 let! operations = NumberOfOperations.Create 1
                 let! memory = MemoryLimit.Create 8192
                 let parameters = {
@@ -28,13 +27,14 @@ let passwordHashingTests =
                 let! first = go()
                 let! second = go()
                 first =! second
+                return ()
             }
-            |> fun x -> trap <@ returnOrFail x @>
+            |> Result.failOnError "Passwords hashes don't match"
 
         yield testCase "Hasing with different parameters leads to different results" <| fun () ->
-            trial {
+            result {
                 let! password = Random.bytes 16 |> Password.CreateDisposable
-                let go () = trial {
+                let go () = result {
                     let! operations = NumberOfOperations.Create 1
                     let! memory = MemoryLimit.Create 8192
                     let parameters = {
@@ -49,6 +49,7 @@ let passwordHashingTests =
                 let! first = go()
                 let! second = go()
                 first <>! second
+                return ()
             }
-            |> fun x -> trap <@ returnOrFail x @>
+            |> Result.failOnError "Passwords hashes don't match"
     ]
