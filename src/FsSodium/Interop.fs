@@ -36,14 +36,14 @@ extern int crypto_sign_detached(
     byte[] tag,
     IntPtr tagLength,
     byte[] plainText,
-    int64 plainTextLength,
+    uint64 plainTextLength,
     byte[] secretKey)
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_sign_verify_detached(
     byte[] tag,
     byte[] plainText,
-    int64 plainTextLength,
+    uint64 plainTextLength,
     byte[] publicKey)
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
@@ -65,7 +65,7 @@ extern int crypto_box_noncebytes();
 extern int crypto_box_easy(
     byte[] cipherText,
     byte[] plainText,
-    int64 plainTextLength,
+    uint64 plainTextLength,
     byte[] nonce,
     byte[] publicKey,
     byte[] secretKey);
@@ -74,7 +74,7 @@ extern int crypto_box_easy(
 extern int crypto_box_open_easy(
     byte[] plainText,
     byte[] cipherText,
-    int64 cipherTextLength,
+    uint64 cipherTextLength,
     byte[] nonce,
     byte[] publicKey,
     byte[] secretKey);
@@ -155,7 +155,7 @@ extern int crypto_secretbox_noncebytes();
 extern int crypto_secretbox_easy(
     byte[] cipherText,
     byte[] plainText,
-    int64 plainTextLength,
+    uint64 plainTextLength,
     byte[] nonce,
     byte[] key);
 
@@ -163,7 +163,7 @@ extern int crypto_secretbox_easy(
 extern int crypto_secretbox_open_easy(
     byte[] plainText,
     byte[] cipherText,
-    int64 cipherTextLength,
+    uint64 cipherTextLength,
     byte[] nonce,
     byte[] key);
 
@@ -191,9 +191,9 @@ extern int crypto_secretstream_xchacha20poly1305_push(
     byte[] cipherText,
     IntPtr cipherTextLength,
     byte[] plainText,
-    int64 plainTextLength,
+    uint64 plainTextLength,
     byte[] additionalData,
-    int64 additionalDataLength,
+    uint64 additionalDataLength,
     byte tag);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
@@ -203,9 +203,9 @@ extern int crypto_secretstream_xchacha20poly1305_pull(
     IntPtr plainTextLength,
     byte& tag,
     byte[] cipherText,
-    int64 cipherTextLength,
+    uint64 cipherTextLength,
     byte[] additionalData,
-    int64 additionalDataLength);
+    uint64 additionalDataLength);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_secretstream_xchacha20poly1305_init_pull(

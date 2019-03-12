@@ -48,7 +48,7 @@ let encryptTo
         Interop.crypto_box_easy(
             cipherText,
             plainText,
-            int64 plainTextLength,
+            uint64 plainTextLength,
             nonce,
             recipientKey,
             senderKey.Secret)
@@ -80,7 +80,7 @@ let decryptTo
         Interop.crypto_box_open_easy(
             plainText,
             cipherText,
-            int64 cipherTextLength,
+            uint64 cipherTextLength,
             nonce,
             senderKey,
             recipientKey.Secret)

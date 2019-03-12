@@ -30,7 +30,7 @@ let sign (secretKey : SecretKey) message =
             mac,
             IntPtr.Zero,
             message,
-            int64 messageLength,
+            uint64 messageLength,
             secretKey.Secret)
     if result = 0 then mac
     else CryptographicException("Signing failed. This should not happen. Please report this error.")
@@ -42,6 +42,6 @@ let verify (PublicKey key) message mac =
         Interop.crypto_sign_verify_detached(
             mac,
             message,
-            int64 messageLength,
+            uint64 messageLength,
             key)
     if result = 0 then Ok () else Error "Authentication failed"

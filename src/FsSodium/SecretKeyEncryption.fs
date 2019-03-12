@@ -36,7 +36,7 @@ let encryptTo (key : Key) (Nonce nonce) plainText plainTextLength cipherText =
         Interop.crypto_secretbox_easy(
             cipherText,
             plainText,
-            int64 plainTextLength,
+            uint64 plainTextLength,
             nonce,
             key.Secret)
 
@@ -65,7 +65,7 @@ let decryptTo
         Interop.crypto_secretbox_open_easy(
             plainText,
             cipherText,
-            int64 cipherTextLength,
+            uint64 cipherTextLength,
             nonce,
             key.Secret)
 

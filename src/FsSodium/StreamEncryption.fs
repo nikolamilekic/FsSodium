@@ -33,9 +33,9 @@ let encryptPart (State state) ((PlainText plainText), messageType) =
             cipherText,
             IntPtr.Zero,
             plainText,
-            int64 plainTextLength,
+            uint64 plainTextLength,
             null,
-            0L,
+            0UL,
             byte tag)
 
     if result = 0
@@ -57,9 +57,9 @@ let decryptPart (State state) (CipherTextBytes cipherText) =
             IntPtr.Zero,
             &tag,
             cipherText,
-            int64 cipherTextLength,
+            uint64 cipherTextLength,
             null,
-            0L)
+            0UL)
 
     if result = 0 then
         let tag = match tag with
