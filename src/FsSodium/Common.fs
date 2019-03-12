@@ -4,8 +4,6 @@ open System
 open System.ComponentModel
 open Milekic.YoLo.Result.Operators
 
-type PlainText = PlainText of byte[]
-
 module Sodium =
     let initialize() =
         if Interop.sodium_init() = -1

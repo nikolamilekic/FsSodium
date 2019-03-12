@@ -4,7 +4,7 @@ open System
 open System.Security.Cryptography
 open Milekic.YoLo
 
-let private additionalBytes =
+let private macLength =
     Interop.crypto_secretstream_xchacha20poly1305_abytes()
 let private keyLength = Interop.crypto_secretstream_xchacha20poly1305_keybytes()
 let private headerLength = Interop.crypto_secretstream_xchacha20poly1305_headerbytes()
@@ -13,15 +13,55 @@ let private notLastTag =
 let private lastTag =
     byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_final()
 
-type StreamEncryptionState =
+type Key private (key) =
+    inherit Secret(key)
+    static member GenerateDisposable() =
+        let key = new Key(Array.zeroCreate keyLength)
+        Interop.crypto_secretstream_xchacha20poly1305_keygen(key.Secret)
+        key
+    static member FromPasswordDisposable(parameters, password) =
+        result {
+            let! keyLength = PasswordHashing.KeyLength.Create keyLength
+            let! key = PasswordHashing.hashPassword keyLength parameters password
+            return new Key(key)
+        }
+        |> Result.failOnError "Password could not be hashed. This should not happen. Please report this error."
+type Header = private Header of byte[]
+type State =
     private State of Interop.crypto_secretstream_xchacha20poly1305_state
-type MessageType = NotLast | Last
-type CipherText = CipherTextBytes of byte[]
+    with
+        static member MakeDecryptionState(key : Key, Header header) =
+            let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
+            let result =
+                Interop.crypto_secretstream_xchacha20poly1305_init_pull(
+                    &s,
+                    header,
+                    key.Secret)
+            if result = 0 then Ok <| State s else Error ()
+        static member MakeEncryptionState(key : Key) =
+            let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
+            let header = Array.zeroCreate headerLength
+            let result =
+                Interop.crypto_secretstream_xchacha20poly1305_init_push(
+                    &s,
+                    header,
+                    key.Secret)
+            if result = 0
+            then Header header, State s
+            else CryptographicException("Making encryption state failed. This should not happen. Please report this error.")
+                 |> raise
 
-let encryptPart (State state) ((PlainText plainText), messageType) =
-    let plainTextLength = Array.length plainText
-    let cipherTextLength = plainTextLength + additionalBytes
-    let cipherText = Array.zeroCreate cipherTextLength
+type MessageType = NotLast | Last
+
+let getCipherTextLength plainTextLength = plainTextLength + macLength
+let getPlainTextLength cipherTextLength = cipherTextLength - macLength
+let encryptPartTo (State state) messageType plainText plainTextLength cipherText =
+    if Array.length cipherText < getCipherTextLength plainTextLength
+    then failwith "Cipher text buffer is not big enough." else
+
+    if Array.length plainText < plainTextLength
+    then failwith "Plain text was expected to be larger." else
+
     let mutable s = state
     let tag = match messageType with
               | NotLast -> notLastTag
@@ -38,15 +78,23 @@ let encryptPart (State state) ((PlainText plainText), messageType) =
             0UL,
             byte tag)
 
-    if result = 0
-    then CipherTextBytes cipherText, State s
-    else CryptographicException("Encryption failed. This should not happen. Please report this error.")
-         |> raise
+    if result <> 0 then
+        CryptographicException("Encryption failed. This should not happen. Please report this error.")
+        |> raise
+    else State s
+let encryptPart state (plainText, messageType)  =
+    let plainTextLength = Array.length plainText
+    let cipherText = getCipherTextLength plainTextLength |> Array.zeroCreate
+    let nextState =
+        encryptPartTo state messageType plainText plainTextLength cipherText
+    cipherText, nextState
+let decryptPartTo (State state) cipherText cipherTextLength plainText =
+    if Array.length plainText < getPlainTextLength cipherTextLength
+    then failwith "Plain text buffer is not big enough." else
 
-let decryptPart (State state) (CipherTextBytes cipherText) =
-    let cipherTextLength = Array.length cipherText
-    let plainTextLength = cipherTextLength - additionalBytes
-    let plainText = Array.zeroCreate plainTextLength
+    if Array.length cipherText < cipherTextLength
+    then failwith "Cipher text was expected to be larger." else
+
     let mutable s = state
     let mutable tag = 0uy
 
@@ -67,38 +115,13 @@ let decryptPart (State state) (CipherTextBytes cipherText) =
                   | x when x = lastTag -> Last
                   | _ -> CryptographicException("Received an unexpected tag")
                          |> raise
-        Ok <| (PlainText plainText, tag, State s)
-    else Error()
-
-type Key = private KeySecret of Secret
-type Header = HeaderBytes of byte[]
-
-let makeEncryptionState (KeySecret key) =
-    let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
-    let header = Array.zeroCreate headerLength
-    let result =
-        Interop.crypto_secretstream_xchacha20poly1305_init_push(
-            &s,
-            header,
-            key.Secret)
-    if result = 0
-    then HeaderBytes header, State s
-    else CryptographicException("Making encryption state failed. This should not happen. Please report this error.")
-         |> raise
-let makeDecryptionState (KeySecret key) (HeaderBytes header) =
-    let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
-    let result =
-        Interop.crypto_secretstream_xchacha20poly1305_init_pull(
-            &s,
-            header,
-            key.Secret)
-    if result = 0 then Ok <| State s else Error ()
-let generateKey() =
-    let key = Array.zeroCreate keyLength
-    let secret = new Secret(key)
-    Interop.crypto_secretstream_xchacha20poly1305_keygen(key)
-    KeySecret secret
-// let generateKeyFromPassword =
-//     uncurry (PasswordHashing.hashPassword keyLength)
-//     >> Result.map KeySecret
-//     |> curry
+        Ok (tag, State s)
+    else Error "Decryption failed"
+let decryptPart state cipherText =  result {
+    let cipherTextLength = Array.length cipherText
+    let plainTextLength = getPlainTextLength cipherTextLength
+    let plainText = Array.zeroCreate plainTextLength
+    let! messageType, nextState =
+        decryptPartTo state cipherText cipherTextLength plainText
+    return plainText, messageType, nextState
+}
