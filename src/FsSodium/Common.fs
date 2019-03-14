@@ -1,36 +1,31 @@
 namespace FsSodium
 
 open System
-open System.ComponentModel
-open Milekic.YoLo.Result.Operators
 
 module Sodium =
+    type InitializationError = SodiumError of int
     let initialize() =
-        if Interop.sodium_init() = -1
-        then failwith "Could not initialize Sodium"
+        match Interop.sodium_init() with
+        | 0 | 1 -> Ok ()
+        | result -> Error <| SodiumError result
 
 [<AutoOpen>]
 module Helpers =
+    type ValidateRangeError = ValueIsTooSmall | ValueIsTooBig
+
     let inline
         validateRange< ^a, 'b, 'c when ^a : (static member Maximum : 'b) and
                                        ^a : (static member Minimum : 'b) and
-                                       'b : comparison> (ctor : 'b -> ^a) x =
+                                       'b : comparison>
+            (ctor : 'b -> ^a) x =
         let minimum = (^a : (static member Minimum : 'b) ())
         let maximum = (^a : (static member Maximum : 'b) ())
-        let name =
-            let aType = typeof< ^a>
-            aType.GetCustomAttributes(true)
-            |> Seq.tryFind (fun x -> x :? DescriptionAttribute)
-            |> Option.map (fun x -> (x :?> DescriptionAttribute).Description)
-            |> Option.defaultValue (aType.Name)
-        let minimumCheck x =
-            if x < minimum
-            then Error <| sprintf "%s cannot be less than %A." name minimum
-            else Ok x
-        let maximumCheck x =
-            if x > maximum
-            then Error <| sprintf "%s cannot be bigger than %A." name maximum
-            else Ok x
-        minimumCheck x >>= maximumCheck >>- ctor
+        if x < minimum then Error ValueIsTooSmall
+        elif x > maximum then Error ValueIsTooBig
+        else Ok <| ctor x
 
     let capToInt x = [ x; Int32.MaxValue |> uint64 ] |> List.min |> int
+
+    let (>>-!) x f = Result.mapError f x
+    let (>>-!.) x error = Result.mapError (fun _ -> error) x
+    let (>>-.) x value = Result.map (fun _ -> value) x

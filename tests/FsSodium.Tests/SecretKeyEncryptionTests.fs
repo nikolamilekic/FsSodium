@@ -6,10 +6,14 @@ open FsSodium
 open SecretKeyEncryption
 open Milekic.YoLo
 
-do Sodium.initialize()
+do initializeSodium()
 
 let alice = Key.GenerateDisposable()
-let eve = Key.GenerateDisposable()
+let encryptWithFixture =
+    uncurry <| encrypt alice
+    >> Result.failOnError "Encryption failed"
+    |> curry
+let decryptWithFixture = decrypt alice
 
 [<Tests>]
 let tests =
@@ -17,26 +21,26 @@ let tests =
         yield testCase "Roundtrip works" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
-            encrypt alice nonce plainText
-            |> decrypt alice nonce
+            encryptWithFixture nonce plainText
+            |> decryptWithFixture nonce
             =! Ok plainText
         yield testCase "Decrypt fails with modified cipher text" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
-            let cipherText = encrypt alice nonce plainText
+            let cipherText = encryptWithFixture nonce plainText
             cipherText.[0] <- if cipherText.[0] = 0uy then 1uy else 0uy
-            decrypt alice nonce cipherText |> Result.isError =! true
+            decryptWithFixture nonce cipherText =! (Error <| SodiumError -1)
         yield testCase "Decrypt fails with modified nonce" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce1 = Nonce.Generate()
             let nonce2 = Nonce.Generate()
-            encrypt alice nonce1 plainText
-            |> decrypt alice nonce2
-            |> Result.isError =! true
+            encryptWithFixture nonce1 plainText
+            |> decryptWithFixture nonce2
+            =! (Error <| SodiumError -1)
         yield testCase "Decrypt fails with wrong key" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
-            encrypt alice nonce plainText
-            |> decrypt eve nonce
-            |> Result.isError =! true
+            encryptWithFixture nonce plainText
+            |> decrypt (Key.GenerateDisposable()) nonce
+            =! (Error <| SodiumError -1)
     ]

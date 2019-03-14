@@ -1,7 +1,5 @@
 module FsSodium.PasswordHashing
 
-open System
-open System.ComponentModel
 open Milekic.YoLo
 
 module internal Salt = let length = Interop.crypto_pwhash_saltbytes()
@@ -11,7 +9,6 @@ type Salt = private Salt of byte[]
 module internal NumberOfOperations =
     let maximum = Interop.crypto_pwhash_opslimit_max() |> capToInt
     let minimum = Interop.crypto_pwhash_opslimit_min() |> capToInt
-[<Description("Number of operations")>]
 type NumberOfOperations = private NumberOfOperations of uint64
     with
         static member Maximum = NumberOfOperations.maximum
@@ -24,7 +21,6 @@ type Algorithm = private Algorithm of int
 module internal MemoryLimit =
     let maximum = Interop.crypto_pwhash_memlimit_max() |> capToInt
     let minimum = Interop.crypto_pwhash_memlimit_min() |> capToInt
-[<Description("Memory limit")>]
 type MemoryLimit = private MemoryLimit of uint64
     with
         static member Maximum = MemoryLimit.maximum
@@ -50,20 +46,18 @@ type KeyLength = private KeyLength of int
 module internal Password =
     let minimumLength = Interop.crypto_pwhash_passwd_min() |> capToInt
     let maximumLength = Interop.crypto_pwhash_passwd_max() |> capToInt
+type PasswordValidationError = PasswordIsTooShort | PasswordIsTooLong
 type Password private (secret) =
     inherit Secret(secret)
     static member CreateDisposable secret =
         let password = new Password(secret)
-        result {
-            let length = Array.length secret
-            if length < Password.minimumLength then
-                return! Error "Password is too short"
-            elif length > Password.maximumLength then
-                return! Error "Password is too long"
-            else return password
-        }
+        let length = Array.length secret
+        if length < Password.minimumLength then Error PasswordIsTooShort
+        elif length > Password.maximumLength then Error PasswordIsTooLong
+        else Ok password
         |> Result.either Ok (fun x -> password.Dispose(); Error x)
 
+type HashPasswordError = SodiumError of int
 let hashPassword
     (KeyLength keyLength)
     {
@@ -86,6 +80,4 @@ let hashPassword
             algorithm)
     if result = 0
     then Ok secret
-    else
-        sprintf "Libsodium could not hash password but instead returned with error code %d. This probably happened because not enough memory could be allocated." result
-        |> Error
+    else Error <| SodiumError result

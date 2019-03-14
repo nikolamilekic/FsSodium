@@ -1,7 +1,6 @@
 module FsSodium.PublicKeyEncryption
 
 open System
-open System.Security.Cryptography
 open Milekic.YoLo
 
 let private publicKeyLength = Interop.crypto_box_publickeybytes()
@@ -10,6 +9,7 @@ let private nonceLength = Interop.crypto_box_noncebytes()
 let private macLength = Interop.crypto_box_macbytes()
 
 type PublicKey = private PublicKey of byte[]
+type KeyGenerationError = SodiumError of int
 type SecretKey private (secretKey, publicKey) =
     inherit Secret(secretKey)
     member __.PublicKey = publicKey
@@ -18,11 +18,8 @@ type SecretKey private (secretKey, publicKey) =
         let secretKey = Array.zeroCreate secretKeyLength
         let secret = new SecretKey(secretKey, PublicKey publicKey)
         let result = Interop.crypto_box_keypair(publicKey, secretKey)
-        if result = 0 then secret
-        else
-            (secret :> IDisposable).Dispose()
-            CryptographicException("Encryption key generation failed. This should not happen. Please report this error.")
-            |> raise
+        if result = 0 then Ok secret
+        else (secret :> IDisposable).Dispose(); Error <| SodiumError result
 
 type Nonce = private Nonce of byte[]
     with static member Generate() = Random.bytes nonceLength |> Nonce
@@ -30,6 +27,10 @@ type Nonce = private Nonce of byte[]
 let getCipherTextLength plainTextLength = plainTextLength + macLength
 let getPlainTextLength cipherTextLength = cipherTextLength - macLength
 
+type EncryptionError =
+    | CipherTextBufferIsNotBigEnough
+    | PlainTextBufferIsNotBigEnough
+    | SodiumError of int
 let encryptTo
     (senderKey : SecretKey)
     (PublicKey recipientKey)
@@ -39,10 +40,10 @@ let encryptTo
     cipherText =
 
     if Array.length cipherText < getCipherTextLength plainTextLength
-    then failwith "Cipher text buffer is not big enough." else
+    then Error CipherTextBufferIsNotBigEnough else
 
     if Array.length plainText < plainTextLength
-    then failwith "Plain text was expected to be larger." else
+    then Error PlainTextBufferIsNotBigEnough else
 
     let result =
         Interop.crypto_box_easy(
@@ -53,15 +54,17 @@ let encryptTo
             recipientKey,
             senderKey.Secret)
 
-    if result <> 0 then
-        CryptographicException("Encryption failed. This should not happen. Please report this error.")
-        |> raise
+    if result = 0 then Ok () else Error <| SodiumError result
 let encrypt sender recipient nonce plainText =
     let plainTextLength = Array.length plainText
     let cipherText = getCipherTextLength plainTextLength |> Array.zeroCreate
     encryptTo sender recipient nonce plainText plainTextLength cipherText
-    cipherText
+    >>-. cipherText
 
+type DecryptionError =
+    | CipherTextBufferIsNotBigEnough
+    | PlainTextBufferIsNotBigEnough
+    | SodiumError of int
 let decryptTo
     (recipientKey : SecretKey)
     (PublicKey senderKey)
@@ -71,10 +74,10 @@ let decryptTo
     plainText =
 
     if Array.length plainText < getPlainTextLength cipherTextLength
-    then failwith "Plain text buffer is not big enough." else
+    then Error PlainTextBufferIsNotBigEnough else
 
     if Array.length cipherText < cipherTextLength
-    then failwith "Cipher text was expected to be larger." else
+    then Error CipherTextBufferIsNotBigEnough else
 
     let result =
         Interop.crypto_box_open_easy(
@@ -85,7 +88,7 @@ let decryptTo
             senderKey,
             recipientKey.Secret)
 
-    if result = 0 then Ok () else Error "Decryption failed."
+    if result = 0 then Ok () else Error <| SodiumError result
 let decrypt recipientKey senderKey nonce cipherText = result {
     let cipherTextLength = Array.length cipherText
     let plainTextLength = getPlainTextLength cipherTextLength

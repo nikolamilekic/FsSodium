@@ -1,13 +1,13 @@
 module FsSodium.PublicKeyAuthentication
 
 open System
-open System.Security.Cryptography
 
 let private macLength = Interop.crypto_sign_bytes()
 let private publicKeyLength = Interop.crypto_sign_publickeybytes()
 let private secretKeyLength = Interop.crypto_sign_secretkeybytes()
 
 type PublicKey = private PublicKey of byte[]
+type KeyGenerationError = SodiumError of int
 type SecretKey private (secretKey, publicKey) =
     inherit Secret(secretKey)
     member __.PublicKey = publicKey
@@ -16,12 +16,10 @@ type SecretKey private (secretKey, publicKey) =
         let secretKey = Array.zeroCreate secretKeyLength
         let secret = new SecretKey(secretKey, PublicKey publicKey)
         let result = Interop.crypto_sign_keypair(publicKey, secretKey)
-        if result = 0 then secret
-        else
-            (secret :> IDisposable).Dispose()
-            CryptographicException("Authentication key generation failed. This should not happen. Please report this error.")
-            |> raise
+        if result = 0 then Ok secret
+        else (secret :> IDisposable).Dispose(); Error <| SodiumError result
 
+type SigningError = SodiumError of int
 let sign (secretKey : SecretKey) message =
     let messageLength = Array.length message
     let mac = Array.zeroCreate macLength
@@ -32,11 +30,12 @@ let sign (secretKey : SecretKey) message =
             message,
             uint64 messageLength,
             secretKey.Secret)
-    if result = 0 then mac
-    else CryptographicException("Signing failed. This should not happen. Please report this error.")
-         |> raise
+    if result = 0 then Ok mac
+    else Error <| SodiumError result
+
+type MacVerificationError = MacHasWrongLength | SodiumError of int
 let verify (PublicKey key) message mac =
-    if Array.length mac <> macLength then Error "Mac must be %d bytes long." else
+    if Array.length mac <> macLength then Error MacHasWrongLength else
     let messageLength = Array.length message
     let result =
         Interop.crypto_sign_verify_detached(
@@ -44,4 +43,4 @@ let verify (PublicKey key) message mac =
             message,
             uint64 messageLength,
             key)
-    if result = 0 then Ok () else Error "Authentication failed"
+    if result = 0 then Ok () else Error <| SodiumError result
