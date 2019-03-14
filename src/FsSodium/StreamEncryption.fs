@@ -37,27 +37,34 @@ type Key private (key) =
 type Header = private Header of byte[]
 type EncryptionStateGenerationError = SodiumError of int
 type DecryptionStateGenerationError = SodiumError of int
-type State =
-    private State of Interop.crypto_secretstream_xchacha20poly1305_state
-    with
-        static member MakeDecryptionState(key : Key, Header header) =
-            let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
-            let result =
-                Interop.crypto_secretstream_xchacha20poly1305_init_pull(
-                    &s,
-                    header,
-                    key.Secret)
-            if result = 0 then Ok <| State s else Error <| SodiumError result
-        static member MakeEncryptionState(key : Key) =
-            let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
-            let header = Array.zeroCreate headerLength
-            let result =
-                Interop.crypto_secretstream_xchacha20poly1305_init_push(
-                    &s,
-                    header,
-                    key.Secret)
-            if result = 0 then Ok (Header header, State s)
-            else Error <| EncryptionStateGenerationError.SodiumError result
+type State internal (state) =
+    static member MakeDecryptionState(key : Key, Header header) =
+        let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
+        let result =
+            Interop.crypto_secretstream_xchacha20poly1305_init_pull(
+                &s,
+                header,
+                key.Secret)
+        if result = 0 then Ok <| new State(s) else Error <| SodiumError result
+    static member MakeEncryptionState(key : Key) =
+        let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
+        let header = Array.zeroCreate headerLength
+        let result =
+            Interop.crypto_secretstream_xchacha20poly1305_init_push(
+                &s,
+                header,
+                key.Secret)
+        if result = 0 then Ok (Header header, new State(s))
+        else Error <| EncryptionStateGenerationError.SodiumError result
+    member internal __.State = state
+    member __.Dispose() =
+        let clear x =
+            if x <> null then Interop.sodium_memzero(x, Array.length x)
+        clear state.k
+        clear state.nonce
+        clear state._pad
+    override this.Finalize() = this.Dispose()
+    interface IDisposable with member this.Dispose() = this.Dispose()
 
 type MessageType = Message | Final | Push | Rekey
 let getCipherTextLength plainTextLength = plainTextLength + macLength
@@ -67,14 +74,14 @@ type EncryptionError =
     | CipherTextBufferIsNotBigEnough
     | PlainTextBufferIsNotBigEnough
     | SodiumError of int
-let encryptPartTo (State state) messageType plainText plainTextLength cipherText =
+let encryptPartTo (state : State) messageType plainText plainTextLength cipherText =
     if Array.length cipherText < getCipherTextLength plainTextLength
     then Error CipherTextBufferIsNotBigEnough else
 
     if Array.length plainText < plainTextLength
     then Error PlainTextBufferIsNotBigEnough else
 
-    let mutable s = state
+    let mutable s = state.State
     let tag = match messageType with
               | Message -> messageTag
               | Final -> finalTag
@@ -92,7 +99,7 @@ let encryptPartTo (State state) messageType plainText plainTextLength cipherText
             0UL,
             byte tag)
 
-    if result = 0 then Ok <| State s else Error <| SodiumError result
+    if result = 0 then Ok <| new State(s) else Error <| SodiumError result
 let encryptPart state (plainText, messageType)  =
     let plainTextLength = Array.length plainText
     let cipherText = getCipherTextLength plainTextLength |> Array.zeroCreate
@@ -105,14 +112,14 @@ type DecryptionError =
     | PlainTextBufferIsNotBigEnough
     | ReceivedAnUnexpectedMessageTag of byte
     | SodiumError of int
-let decryptPartTo (State state) cipherText cipherTextLength plainText =
+let decryptPartTo (state : State) cipherText cipherTextLength plainText =
     if Array.length plainText < getPlainTextLength cipherTextLength
     then Error PlainTextBufferIsNotBigEnough else
 
     if Array.length cipherText < cipherTextLength
     then Error CipherTextBufferIsNotBigEnough else
 
-    let mutable s = state
+    let mutable s = state.State
     let mutable tag = 0uy
 
     let result =
@@ -128,10 +135,10 @@ let decryptPartTo (State state) cipherText cipherTextLength plainText =
 
     if result = 0 then
         match tag with
-        | x when x = finalTag -> Ok (Final, State s)
-        | x when x = messageTag -> Ok (Message, State s)
-        | x when x = pushTag -> Ok (Push, State s)
-        | x when x = rekeyTag -> Ok (Rekey, State s)
+        | x when x = finalTag -> Ok (Final, new State(s))
+        | x when x = messageTag -> Ok (Message, new State(s))
+        | x when x = pushTag -> Ok (Push, new State(s))
+        | x when x = rekeyTag -> Ok (Rekey, new State(s))
         | _ -> Error <| ReceivedAnUnexpectedMessageTag tag
     else Error <| SodiumError result
 let decryptPart state cipherText =  result {

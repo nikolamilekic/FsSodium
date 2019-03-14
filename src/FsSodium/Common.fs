@@ -1,8 +1,13 @@
 namespace FsSodium
 
 open System
+open System.Runtime.CompilerServices
 
 module Sodium =
+
+    [<assembly: InternalsVisibleTo("FsSodium.Tests")>]
+    do ()
+
     type InitializationError = SodiumError of int
     let initialize() =
         match Interop.sodium_init() with
