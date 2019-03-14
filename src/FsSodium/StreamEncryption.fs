@@ -2,6 +2,7 @@ module FsSodium.StreamEncryption
 
 open System
 open Milekic.YoLo
+open Milekic.YoLo.Result.Operators
 
 let private macLength =
     Interop.crypto_secretstream_xchacha20poly1305_abytes()
@@ -97,7 +98,7 @@ let encryptPart state (plainText, messageType)  =
     let cipherText = getCipherTextLength plainTextLength |> Array.zeroCreate
     let nextState =
         encryptPartTo state messageType plainText plainTextLength cipherText
-    cipherText, nextState
+    nextState >>- fun x -> (cipherText, x)
 
 type DecryptionError =
     | CipherTextBufferIsNotBigEnough

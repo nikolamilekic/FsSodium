@@ -33,8 +33,8 @@ let encrypt key (parts : _ seq) =
         State.MakeEncryptionState key
         |> Result.failOnError "Encryption state generation failed"
     let encryptPart state message  =
-        let tag, result = encryptPart state message
-        tag, result |> Result.failOnError "Part encryption failed."
+        encryptPart state message
+        |> Result.failOnError "Part encryption failed."
     header, partsWithType |> Seq.mapFold encryptPart state |> fst
 let decrypt key (header, (parts : _ seq)) =
     State.MakeDecryptionState(key, header)
