@@ -14,13 +14,20 @@ let stream = Seq.init 10 byte |> Seq.chunkBySize 3 |> Seq.toList
 let encrypt key (parts : _ seq) =
     let partsWithType = seq {
         use enumerator = parts.GetEnumerator()
-        let rec run current = seq {
+        let rec run index current = seq {
             let currentIsLast = enumerator.MoveNext() |> not
-            if currentIsLast then yield current, Last
-            else yield current, NotLast; yield! run enumerator.Current
+            let currentTag =
+                match currentIsLast, index with
+                | true, _ -> Final
+                | _, 1 -> Push
+                | _, 2 -> Rekey
+                | _ -> Message
+            yield current, currentTag
+            if currentIsLast |> not
+            then yield! run (index + 1) enumerator.Current
         }
         let empty = enumerator.MoveNext() |> not
-        if not empty then yield! run enumerator.Current
+        if not empty then yield! run 0 enumerator.Current
     }
     let header, state =
         State.MakeEncryptionState key
@@ -36,12 +43,12 @@ let decrypt key (header, (parts : _ seq)) =
         let rec run state cipherText = seq {
             let result = decryptPart state cipherText
             match result with
-            | Ok (plainText, NotLast, state) ->
+            | Ok (plainText, Final, _) -> yield Ok plainText
+            | Ok (plainText, _, state) ->
                 yield Ok plainText
                 if enumerator.MoveNext()
                 then yield! run state enumerator.Current
                 else failwith "Unanticipated stream end"
-            | Ok (plainText, Last, _) -> yield Ok plainText
             | Error x -> yield Error x
         }
         let empty = enumerator.MoveNext() |> not

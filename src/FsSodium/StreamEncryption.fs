@@ -7,10 +7,14 @@ let private macLength =
     Interop.crypto_secretstream_xchacha20poly1305_abytes()
 let private keyLength = Interop.crypto_secretstream_xchacha20poly1305_keybytes()
 let private headerLength = Interop.crypto_secretstream_xchacha20poly1305_headerbytes()
-let private notLastTag =
+let private messageTag =
     byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_message()
-let private lastTag =
+let private finalTag =
     byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_final()
+let private rekeyTag =
+    byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_rekey()
+let private pushTag =
+    byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_push()
 
 type KeyGenerationFromPasswordError =
     | WrongKeyLength of ValidateRangeError
@@ -54,8 +58,7 @@ type State =
             if result = 0 then Ok (Header header, State s)
             else Error <| EncryptionStateGenerationError.SodiumError result
 
-type MessageType = NotLast | Last
-
+type MessageType = Message | Final | Push | Rekey
 let getCipherTextLength plainTextLength = plainTextLength + macLength
 let getPlainTextLength cipherTextLength = cipherTextLength - macLength
 
@@ -72,8 +75,10 @@ let encryptPartTo (State state) messageType plainText plainTextLength cipherText
 
     let mutable s = state
     let tag = match messageType with
-              | NotLast -> notLastTag
-              | Last -> lastTag
+              | Message -> messageTag
+              | Final -> finalTag
+              | Push -> pushTag
+              | Rekey -> rekeyTag
 
     let result =
         Interop.crypto_secretstream_xchacha20poly1305_push(
@@ -122,8 +127,10 @@ let decryptPartTo (State state) cipherText cipherTextLength plainText =
 
     if result = 0 then
         match tag with
-        | x when x = notLastTag -> Ok (NotLast, State s)
-        | x when x = lastTag -> Ok (Last, State s)
+        | x when x = finalTag -> Ok (Final, State s)
+        | x when x = messageTag -> Ok (Message, State s)
+        | x when x = pushTag -> Ok (Push, State s)
+        | x when x = rekeyTag -> Ok (Rekey, State s)
         | _ -> Error <| ReceivedAnUnexpectedMessageTag tag
     else Error <| SodiumError result
 let decryptPart state cipherText =  result {

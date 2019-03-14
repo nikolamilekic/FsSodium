@@ -186,6 +186,12 @@ extern int crypto_secretstream_xchacha20poly1305_tag_message();
 extern int crypto_secretstream_xchacha20poly1305_tag_final();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_tag_rekey();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_secretstream_xchacha20poly1305_tag_push();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_secretstream_xchacha20poly1305_push(
     crypto_secretstream_xchacha20poly1305_state& state,
     byte[] cipherText,
