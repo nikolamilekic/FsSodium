@@ -7,6 +7,7 @@ open Milekic.YoLo.Result.Operators
 open FsSodium
 
 open StreamEncryption
+open System.IO
 
 do initializeSodium()
 
@@ -69,7 +70,7 @@ let getKeyCopy (state : State) = state.State.k |> Array.copy
 [<Tests>]
 let tests =
     testList "StreamEncryption" [
-        yield testCase "Roundtrip works" <| fun () ->
+        yield testCase "Part roundtrip works" <| fun () ->
             stream
             |> encryptWithFixture
             |> decryptWithFixture
@@ -78,7 +79,8 @@ let tests =
             let encrypted =
                 let h, c = encryptWithFixture stream
                 h, c |> Seq.skip 1
-            decryptWithFixture encrypted =! (Error <| SodiumError -1)
+            decryptWithFixture encrypted
+            =! (Error <| PartDecryptionError.SodiumError -1)
         yield testCase "Decrypt fails with modified part" <| fun () ->
             let encrypted =
                 let h, c = encryptWithFixture stream
@@ -86,7 +88,8 @@ let tests =
                 let bytes = List.head c
                 bytes.[0] <- if bytes.[0] = 0uy then 1uy else 0uy
                 h, c
-            decryptWithFixture encrypted =! (Error <| SodiumError -1)
+            decryptWithFixture encrypted
+            =! (Error <| PartDecryptionError.SodiumError -1)
         yield testCase "Decrypt fails with wrong header" <| fun () ->
             let anotherHeader, _ =
                 State.MakeEncryptionState(alice)
@@ -94,14 +97,15 @@ let tests =
             let encrypted =
                 let _, c = encrypt alice stream
                 anotherHeader, c
-            decryptWithFixture encrypted =! (Error <| SodiumError -1)
+            decryptWithFixture encrypted
+            =! (Error <| PartDecryptionError.SodiumError -1)
         yield testCase "Decrypt fails with wrong key" <| fun () ->
             encryptWithFixture stream
             |> decrypt (Key.GenerateDisposable())
             |> Result.failOnError "Bad header"
             |> List.ofSeq
             |> Result.sequence
-            =! (Error <| SodiumError -1)
+            =! (Error <| PartDecryptionError.SodiumError -1)
         yield testCase "Key is not modified after encrypting message" <| fun () ->
             let _, initialState = makeEncryptionState alice
             let initialStateKey = getKeyCopy initialState
@@ -182,4 +186,34 @@ let tests =
             initialState.State.k =! zeroKey
             initialStateKey =! nextStateKey
             nextState.State.k =! nextStateKey
+
+        let testStreamRoundtripWithSize size () =
+            let sourceBuffer = Array.init size byte
+
+            use encryptionSource = new MemoryStream(sourceBuffer)
+            let encryptionBuffer = Array.zeroCreate 500
+            use encryptionDestination = new MemoryStream(encryptionBuffer)
+            encryptStream 10 alice encryptionSource encryptionDestination
+            =! Ok ()
+
+            use decryptionSource =
+                let bufer =
+                    Array.truncate
+                        (int encryptionDestination.Position)
+                        encryptionBuffer
+                new MemoryStream(bufer)
+            let decryptionDestinationBuffer = Array.zeroCreate size
+            use decryptionDestination =
+                new MemoryStream(decryptionDestinationBuffer)
+
+            decryptStream alice decryptionSource decryptionDestination =! Ok()
+
+            decryptionDestinationBuffer =! sourceBuffer
+
+        yield!
+            [22; 30]
+            |> Seq.map (fun x ->
+                testCase
+                    (sprintf "Stream roundtrip works with size %i" x)
+                    (testStreamRoundtripWithSize x))
     ]
