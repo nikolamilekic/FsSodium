@@ -715,4 +715,4 @@ NUGET
     Unquote (4.0)
       FSharp.Core (>= 4.2.3) - restriction: >= netstandard2.0
   remote: https://ci.appveyor.com/nuget/milekic-yolo
-    Milekic.YoLo (1.1.0-dev.21)
+    Milekic.YoLo (1.1.0-dev.23)

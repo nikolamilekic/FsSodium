@@ -2,6 +2,8 @@ module FsSodium.SecretKeyEncryption
 
 open FsSodium
 open Milekic.YoLo
+open Milekic.YoLo.Validation
+open Milekic.YoLo.Result.Operators
 
 let private keyLength = Interop.crypto_secretbox_keybytes()
 let private nonceLength = Interop.crypto_secretbox_noncebytes()

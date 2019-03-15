@@ -2,6 +2,7 @@ module FsSodium.StreamEncryption
 
 open System
 open Milekic.YoLo
+open Milekic.YoLo.Validation
 open Milekic.YoLo.Result.Operators
 
 let private macLength =

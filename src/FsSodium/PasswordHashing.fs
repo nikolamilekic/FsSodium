@@ -1,6 +1,7 @@
 module FsSodium.PasswordHashing
 
 open Milekic.YoLo
+open Milekic.YoLo.Validation
 
 module internal Salt = let length = Interop.crypto_pwhash_saltbytes()
 type Salt = private Salt of byte[]

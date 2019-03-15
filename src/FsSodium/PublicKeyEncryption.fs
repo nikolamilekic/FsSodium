@@ -2,6 +2,7 @@ module FsSodium.PublicKeyEncryption
 
 open System
 open Milekic.YoLo
+open Milekic.YoLo.Result.Operators
 
 let private publicKeyLength = Interop.crypto_box_publickeybytes()
 let private secretKeyLength = Interop.crypto_box_secretkeybytes()
