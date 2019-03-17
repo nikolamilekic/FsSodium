@@ -3,9 +3,13 @@ module FsSodium.PasswordHashing
 open Milekic.YoLo
 open Milekic.YoLo.Validation
 
-module internal Salt = let length = Interop.crypto_pwhash_saltbytes()
+module Salt = let length = Interop.crypto_pwhash_saltbytes()
 type Salt = private Salt of byte[]
-    with static member Generate() = Random.bytes Salt.length |> Salt
+    with
+        static member Generate() = Random.bytes Salt.length |> Salt
+        static member FromBytes x =
+            if Array.length x = Salt.length then Salt x |> Some else None
+        member this.Bytes = let (Salt x) = this in x
 
 module internal NumberOfOperations =
     let maximum = Interop.crypto_pwhash_opslimit_max() |> capToInt
@@ -16,8 +20,15 @@ type NumberOfOperations = private NumberOfOperations of uint64
         static member Minimum = NumberOfOperations.minimum
         static member Create = validateRange (uint64 >> NumberOfOperations)
 
-type Algorithm = private Algorithm of int
-    with static member Default = Interop.crypto_pwhash_alg_default() |> Algorithm
+module internal Algorithm =
+    let defaultAlgorithmInt = Interop.crypto_pwhash_alg_default()
+type Algorithm = Default
+    with
+        static member FromInt = function
+            | x when x = Algorithm.defaultAlgorithmInt -> Some Default
+            | _ -> None
+        member this.AsInt =  match this with
+                             | Default -> Algorithm.defaultAlgorithmInt
 
 module internal MemoryLimit =
     let maximum = Interop.crypto_pwhash_memlimit_max() |> capToInt
@@ -63,7 +74,7 @@ let hashPassword
     (KeyLength keyLength)
     {
         Salt = (Salt salt)
-        Algorithm = (Algorithm algorithm)
+        Algorithm = algorithm
         NumberOfOperations = (NumberOfOperations operations)
         MemoryLimit = (MemoryLimit memory)
     }
@@ -78,7 +89,7 @@ let hashPassword
             salt,
             operations,
             memory,
-            algorithm)
+            algorithm.AsInt)
     if result = 0
     then Ok secret
     else Error <| SodiumError result

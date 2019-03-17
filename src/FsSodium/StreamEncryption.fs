@@ -11,7 +11,6 @@ open Milekic.YoLo.UpdateResult.Operators
 let private macLength =
     Interop.crypto_secretstream_xchacha20poly1305_abytes()
 let private keyLength = Interop.crypto_secretstream_xchacha20poly1305_keybytes()
-let private headerLength = Interop.crypto_secretstream_xchacha20poly1305_headerbytes()
 let private messageTag =
     byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_message()
 let private finalTag =
@@ -39,7 +38,13 @@ type Key private (key) =
             |> Result.mapError HashPasswordError
         return new Key(key)
     }
-type Header = Header of byte[]
+module Header =
+    let length = Interop.crypto_secretstream_xchacha20poly1305_headerbytes()
+type Header = private Header of byte[]
+    with
+        static member FromBytes x =
+            if Array.length x = Header.length then Header x |> Some else None
+        member this.Bytes = let (Header x) = this in x
 type EncryptionStateGenerationError = SodiumError of int
 type DecryptionStateGenerationError = SodiumError of int
 type State internal (state) =
@@ -53,7 +58,7 @@ type State internal (state) =
         if result = 0 then Ok <| new State(s) else Error <| SodiumError result
     static member MakeEncryptionState(key : Key) =
         let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
-        let header = Array.zeroCreate headerLength
+        let header = Array.zeroCreate Header.length
         let result =
             Interop.crypto_secretstream_xchacha20poly1305_init_push(
                 &s,
