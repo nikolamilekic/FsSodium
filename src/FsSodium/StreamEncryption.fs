@@ -4,7 +4,9 @@ open System
 open System.IO
 open Milekic.YoLo
 open Milekic.YoLo.Validation
-open Milekic.YoLo.Result.Operators
+open Milekic.YoLo.Update
+open Milekic.YoLo.UpdateResult
+open Milekic.YoLo.UpdateResult.Operators
 
 let private macLength =
     Interop.crypto_secretstream_xchacha20poly1305_abytes()
@@ -30,10 +32,11 @@ type Key private (key) =
         key
     static member FromPasswordDisposable(parameters, password) = result {
         let! keyLength =
-            PasswordHashing.KeyLength.Create keyLength >>-! WrongKeyLength
+            PasswordHashing.KeyLength.Create keyLength
+            |> Result.mapError WrongKeyLength
         let! key =
             PasswordHashing.hashPassword keyLength parameters password
-            >>-! HashPasswordError
+            |> Result.mapError HashPasswordError
         return new Key(key)
     }
 type Header = Header of byte[]
@@ -68,6 +71,18 @@ type State internal (state) =
     override this.Finalize() = this.Dispose()
     interface IDisposable with member this.Dispose() = this.Dispose()
 
+[<NoComparison; NoEquality>]
+type StateUpdate =
+    | DoNothing
+    | SetNew of State
+    static member Apply (s : State, u) = match u with
+                                         | DoNothing -> s
+                                         | SetNew s1 -> s.Dispose(); s1
+    static member Unit = DoNothing
+    static member Combine(a, b) = match (a, b) with | x, DoNothing -> x
+                                                    | _, x -> x
+let setNewState x = (fun _ -> SetNew x, ()) |> Update |> liftUpdate
+
 type MessageType = Message | Final | Push | Rekey
 let getCipherTextLength plainTextLength = plainTextLength + macLength
 let getPlainTextLength cipherTextLength = cipherTextLength - macLength
@@ -76,20 +91,20 @@ type PartEncryptionError =
     | CipherTextBufferIsNotBigEnough
     | PlainTextBufferIsNotBigEnough
     | SodiumError of int
-let encryptPartTo (state : State) messageType plainText plainTextLength cipherText =
+let encryptPartTo messageType plainText plainTextLength cipherText = updateResult {
     if Array.length cipherText < getCipherTextLength plainTextLength
-    then Error CipherTextBufferIsNotBigEnough else
+    then return! Error CipherTextBufferIsNotBigEnough |> liftResult else
 
     if Array.length plainText < plainTextLength
-    then Error PlainTextBufferIsNotBigEnough else
+    then return! Error PlainTextBufferIsNotBigEnough |> liftResult else
 
+    let! (state : State) = getState |> liftUpdate
     let mutable s = state.State
     let tag = match messageType with
               | Message -> messageTag
               | Final -> finalTag
               | Push -> pushTag
               | Rekey -> rekeyTag
-
     let result =
         Interop.crypto_secretstream_xchacha20poly1305_push(
             &s,
@@ -100,27 +115,28 @@ let encryptPartTo (state : State) messageType plainText plainTextLength cipherTe
             null,
             0UL,
             byte tag)
-
-    if result = 0 then Ok <| new State(s) else Error <| SodiumError result
-let encryptPart state (plainText, messageType)  =
+    if result = 0 then return! setNewState <| new State(s)
+    else return! Error <| SodiumError result |> liftResult
+}
+let encryptPart (plainText, messageType) = UpdateResult.delay <| fun () ->
     let plainTextLength = Array.length plainText
     let cipherText = getCipherTextLength plainTextLength |> Array.zeroCreate
-    let nextState =
-        encryptPartTo state messageType plainText plainTextLength cipherText
-    nextState >>- fun x -> (cipherText, x)
+    encryptPartTo messageType plainText plainTextLength cipherText
+    |> UpdateResult.map (fun _ -> cipherText)
 
 type PartDecryptionError =
     | CipherTextBufferIsNotBigEnough
     | PlainTextBufferIsNotBigEnough
     | ReceivedAnUnexpectedMessageTag of byte
     | SodiumError of int
-let decryptPartTo (state : State) cipherText cipherTextLength plainText =
+let decryptPartTo cipherText cipherTextLength plainText = updateResult {
     if Array.length plainText < getPlainTextLength cipherTextLength
-    then Error PlainTextBufferIsNotBigEnough else
+    then return! Error PlainTextBufferIsNotBigEnough |> liftResult else
 
     if Array.length cipherText < cipherTextLength
-    then Error CipherTextBufferIsNotBigEnough else
+    then return! Error CipherTextBufferIsNotBigEnough |> liftResult else
 
+    let! (state : State) = getState |> liftUpdate
     let mutable s = state.State
     let mutable tag = 0uy
 
@@ -136,110 +152,101 @@ let decryptPartTo (state : State) cipherText cipherTextLength plainText =
             0UL)
 
     if result = 0 then
+        do! setNewState <| new State(s)
         match tag with
-        | x when x = finalTag -> Ok (Final, new State(s))
-        | x when x = messageTag -> Ok (Message, new State(s))
-        | x when x = pushTag -> Ok (Push, new State(s))
-        | x when x = rekeyTag -> Ok (Rekey, new State(s))
-        | _ -> Error <| ReceivedAnUnexpectedMessageTag tag
-    else Error <| SodiumError result
-let decryptPart state cipherText =  result {
+        | x when x = finalTag -> return Final
+        | x when x = messageTag -> return Message
+        | x when x = pushTag -> return Push
+        | x when x = rekeyTag -> return Rekey
+        | _ -> return! Error <| ReceivedAnUnexpectedMessageTag tag |> liftResult
+    else return! Error <| SodiumError result |> liftResult
+}
+let decryptPart cipherText = UpdateResult.delay <| fun () ->
     let cipherTextLength = Array.length cipherText
     let plainTextLength = getPlainTextLength cipherTextLength
     let plainText = Array.zeroCreate plainTextLength
-    let! messageType, nextState =
-        decryptPartTo state cipherText cipherTextLength plainText
-    return plainText, messageType, nextState
-}
+    decryptPartTo cipherText cipherTextLength plainText
+    |> flip UpdateResult.map <| fun messageType -> plainText, messageType
 
 type StreamEncryptionError =
-    | StateGenerationError of EncryptionStateGenerationError
     | InputStreamError of IOException
     | OutputStreamError of IOException
     | EncryptionError of PartEncryptionError
 let encryptStream
-    (chunkSize : int) key (inputStream : Stream) (outputStream : Stream) =
+    chunkSize (inputStream : Stream) (outputStream : Stream) = updateResult {
 
+    let read buffer count =
+        try Ok <| inputStream.Read(buffer, 0, count)
+        with | :? IOException as exn -> Error <| InputStreamError exn
+        |> liftResult
+    let write buffer count =
+        try Ok <| outputStream.Write(buffer, 0, count)
+        with | :? IOException as exn -> Error <| OutputStreamError exn
+        |> liftResult
     let cipherTextLength = getCipherTextLength chunkSize
     let cipherBuffer = Array.zeroCreate cipherTextLength
     let plainBuffer = Array.zeroCreate chunkSize
     use __ = new Secret(plainBuffer)
-    let write buffer count =
-        try Ok <| outputStream.Write(buffer, 0, count)
-        with | :? IOException as exn -> Error <| OutputStreamError exn
     let inputStreamLength = inputStream.Length |> int
-    let rec go count state = result {
-        let! readBytes =
-            try Ok <| inputStream.Read(plainBuffer, 0, chunkSize)
-            with | :? IOException as exn -> Error <| InputStreamError exn
+
+    let rec inner count = updateResult {
+        let! readBytes = read plainBuffer chunkSize
         let cipherTextLength = getCipherTextLength readBytes
         let messageType =
             if count + readBytes < inputStreamLength then Message else Final
-        let! nextState =
-            encryptPartTo state messageType plainBuffer readBytes cipherBuffer
+        do! encryptPartTo messageType plainBuffer readBytes cipherBuffer
             >>-! EncryptionError
-        state.Dispose()
         do! write cipherBuffer cipherTextLength
         match messageType with
-        | Final -> nextState.Dispose()
-        | _ -> return! go (count + readBytes) nextState
+        | Final -> return ()
+        | _ -> return! inner (count + readBytes)
     }
 
-    result {
-        let! (Header h), state =
-            State.MakeEncryptionState key >>-! StateGenerationError
-        do! write h (Array.length h)
-        let! encryptedChunkSize, state =
-            use state = state
-            BitConverter.GetBytes(chunkSize)
-            |> fun chunkSize -> encryptPart state (chunkSize, Message)
-            >>-! EncryptionError
-        do! write encryptedChunkSize (Array.length encryptedChunkSize)
-        return! go 0 state
-    }
+    let! encryptedChunkSize =
+        BitConverter.GetBytes(chunkSize)
+        |> fun chunkSize -> encryptPart (chunkSize, Message)
+        >>-! EncryptionError
+    do! write encryptedChunkSize (Array.length encryptedChunkSize)
+    return! inner 0
+}
 
 type StreamDecryptionError =
-    | StateGenerationError of DecryptionStateGenerationError
     | InputStreamError of IOException
     | OutputStreamError of IOException
     | ChunkSizeDecryptionError of PartDecryptionError
     | ChunkDecryptionError of PartDecryptionError
-let decryptStream key (inputStream : Stream) (outputStream : Stream) = result {
-    let read buffer =
-        try Ok <| inputStream.Read(buffer, 0, (Array.length buffer))
+let decryptStream
+    (inputStream : Stream) (outputStream : Stream) = updateResult {
+
+    let read buffer count =
+        try Ok <| inputStream.Read(buffer, 0, count)
         with | :? IOException as exn -> Error <| InputStreamError exn
-    let! state = result {
-        let h = Array.zeroCreate (headerLength)
-        do! read h >>- ignore
-        return!
-            State.MakeDecryptionState(key, Header h) >>-! StateGenerationError
-    }
-    let! chunkSize, state = result {
-        let b = Array.zeroCreate (getCipherTextLength 4)
-        do! read b >>- ignore
-        let! b, _, s = decryptPart state b >>-! ChunkSizeDecryptionError
-        state.Dispose()
-        return BitConverter.ToInt32(b, 0), s
+        |> liftResult
+    let write buffer count =
+        try Ok <| outputStream.Write(buffer, 0, count)
+        with | :? IOException as exn -> Error <| OutputStreamError exn
+        |> liftResult
+    let! chunkSize = updateResult {
+        let cipher = Array.zeroCreate (getCipherTextLength 4)
+        do! read cipher (Array.length cipher) >>- ignore
+        let! plain, _ = decryptPart cipher >>-! ChunkSizeDecryptionError
+        return BitConverter.ToInt32(plain, 0)
     }
     let cipherTextLength = getCipherTextLength chunkSize
     let cipherBuffer = Array.zeroCreate cipherTextLength
     let plainBuffer = Array.zeroCreate chunkSize
     use __ = new Secret(plainBuffer)
-    let rec go state = result {
-        let! readBytes = read cipherBuffer
+
+    let rec inner () = updateResult {
+        let! readBytes = read cipherBuffer cipherTextLength
         let plainTextLength = getPlainTextLength readBytes
-        let! messageType, nextState =
-            decryptPartTo state cipherBuffer readBytes plainBuffer
+        let! messageType =
+            decryptPartTo cipherBuffer readBytes plainBuffer
             >>-! ChunkDecryptionError
-        state.Dispose()
-
-        do!
-            try Ok <| outputStream.Write(plainBuffer, 0, plainTextLength)
-            with | :? IOException as exn -> Error <| OutputStreamError exn
-
+        do! write plainBuffer plainTextLength
         match messageType with
-        | Final -> nextState.Dispose(); return ()
-        | _ -> return! go nextState
+        | Final -> return ()
+        | _ -> return! inner()
     }
-    return! go state
+    return! inner ()
 }

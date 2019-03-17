@@ -1,24 +1,20 @@
 module FsSodium.Tests.StreamEncryptionTests
 
+open System.IO
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
-open Milekic.YoLo.Result.Operators
-open FsSodium
-
-open StreamEncryption
-open System.IO
+open Milekic.YoLo.UpdateResult
+open Milekic.YoLo.UpdateResult.Operators
+open FsSodium.StreamEncryption
 
 do initializeSodium()
 
 let zeroKey = Array.zeroCreate 32
 let stream = Seq.init 10 byte |> Seq.chunkBySize 3 |> Seq.toList
-let makeEncryptionState =
-    State.MakeEncryptionState
-    >> Result.failOnError "Encryption state generation failed"
-let encrypt key (parts : _ seq) =
-    let partsWithType = seq {
-        use enumerator = parts.GetEnumerator()
+let streamEncryptionJob =
+    seq {
+        use enumerator = (stream |> List.toSeq).GetEnumerator()
         let rec run index current = seq {
             let currentIsLast = enumerator.MoveNext() |> not
             let currentTag =
@@ -34,56 +30,50 @@ let encrypt key (parts : _ seq) =
         let empty = enumerator.MoveNext() |> not
         if not empty then yield! run 0 enumerator.Current
     }
+    |> List.ofSeq
+    |> traverse encryptPart
+let makeStreamDecryptionJob = traverse (decryptPart >> UpdateResult.map fst)
+let makeEncryptionState =
+    State.MakeEncryptionState
+    >> Result.failOnError "Encryption state generation failed"
+let makeDecryptionState =
+    State.MakeDecryptionState
+    >> Result.failOnError "Encryption state generation failed"
+    |> curry
+let encrypt key x =
     let header, state = makeEncryptionState key
-    let encryptPart state message  =
-        encryptPart state message
-        |> Result.failOnError "Part encryption failed."
-    header, partsWithType |> Seq.mapFold encryptPart state |> fst
-let decrypt key (header, (parts : _ seq)) =
-    State.MakeDecryptionState(key, header)
-    |> Result.map (fun state -> seq {
-        use enumerator = parts.GetEnumerator()
-        let rec run state cipherText = seq {
-            let result = decryptPart state cipherText
-            match result with
-            | Ok (plainText, Final, _) -> yield Ok plainText
-            | Ok (plainText, _, state) ->
-                yield Ok plainText
-                if enumerator.MoveNext()
-                then yield! run state enumerator.Current
-                else failwith "Unanticipated stream end"
-            | Error x -> yield Error x
-        }
-        let empty = enumerator.MoveNext() |> not
-        if not empty then yield! run state enumerator.Current
-    })
+    run state x
+    |> Result.failOnError "Part encryption failed."
+    |> fun (c, _) -> header, c
+let decrypt key header x =
+    let state = makeDecryptionState key header
+    run state x |> Result.map fst
 
 let alice = Key.GenerateDisposable()
-let encryptWithFixture x = encrypt alice x
-let decryptWithFixture x =
-    decrypt alice x
-    |> Result.failOnError "Bad header"
-    |> List.ofSeq
-    |> Result.sequence
-let getKeyCopy (state : State) = state.State.k |> Array.copy
+let encryptWithFixture () = encrypt alice <| streamEncryptionJob
+let decryptWithFixture (header, parts) =
+    List.ofSeq parts |> makeStreamDecryptionJob |> decrypt alice header
+let getKeyCopy<'e> : UpdateResult<State, StateUpdate, _, 'e> = updateResult {
+    let! (state : State) = Update.getState |> liftUpdate
+    return state.State.k |> Array.copy
+}
 
 [<Tests>]
 let tests =
     testList "StreamEncryption" [
         yield testCase "Part roundtrip works" <| fun () ->
-            stream
-            |> encryptWithFixture
+            encryptWithFixture ()
             |> decryptWithFixture
             =! Ok stream
         yield testCase "Decrypt fails with missing part" <| fun () ->
             let encrypted =
-                let h, c = encryptWithFixture stream
+                let h, c = encryptWithFixture ()
                 h, c |> Seq.skip 1
             decryptWithFixture encrypted
             =! (Error <| PartDecryptionError.SodiumError -1)
         yield testCase "Decrypt fails with modified part" <| fun () ->
             let encrypted =
-                let h, c = encryptWithFixture stream
+                let h, c = encryptWithFixture ()
                 let c = List.ofSeq c
                 let bytes = List.head c
                 bytes.[0] <- if bytes.[0] = 0uy then 1uy else 0uy
@@ -95,106 +85,94 @@ let tests =
                 State.MakeEncryptionState(alice)
                 |> Result.failOnError "Encryption state generation failed"
             let encrypted =
-                let _, c = encrypt alice stream
+                let _, c = encryptWithFixture ()
                 anotherHeader, c
             decryptWithFixture encrypted
             =! (Error <| PartDecryptionError.SodiumError -1)
         yield testCase "Decrypt fails with wrong key" <| fun () ->
-            encryptWithFixture stream
-            |> decrypt (Key.GenerateDisposable())
-            |> Result.failOnError "Bad header"
-            |> List.ofSeq
-            |> Result.sequence
+            encryptWithFixture ()
+            |> fun (header, parts) ->
+                makeStreamDecryptionJob parts
+                |> decrypt (Key.GenerateDisposable()) header
             =! (Error <| PartDecryptionError.SodiumError -1)
+
+        let checkKeyModificationAfterMessage shouldBeModified messageType =
+            updateResult {
+                let! initialKey = getKeyCopy
+                do! encryptPart ([|1uy; 2uy; 3uy|], messageType) >>- ignore
+                let! nextKey = getKeyCopy
+                if shouldBeModified
+                then nextKey <>! initialKey
+                else nextKey =! initialKey
+            }
+            |> encrypt alice
+            |> ignore
+
         yield testCase "Key is not modified after encrypting message" <| fun () ->
-            let _, initialState = makeEncryptionState alice
-            let initialStateKey = getKeyCopy initialState
-
-            let nextState =
-                encryptPart initialState ([|1uy; 2uy; 3uy|], Message)
-                >>- snd
-                |> Result.failOnError "Encryption failed"
-
-            nextState.State.k =! initialStateKey
+            checkKeyModificationAfterMessage false Message
         yield testCase "Key is not modified after encrypting push" <| fun () ->
-            let _, initialState = makeEncryptionState alice
-            let initialStateKey = getKeyCopy initialState
-
-            let nextState =
-                encryptPart initialState ([|1uy; 2uy; 3uy|], Push)
-                >>- snd
-                |> Result.failOnError "Encryption failed"
-
-            nextState.State.k =! initialStateKey
+            checkKeyModificationAfterMessage false Push
         yield testCase "Key is modified after encrypting rekey" <| fun () ->
-            let _, initialState = makeEncryptionState alice
-            let initialStateKey = getKeyCopy initialState
-
-            let nextState =
-                encryptPart initialState ([|1uy; 2uy; 3uy|], Rekey)
-                >>- snd
-                |> Result.failOnError "Encryption failed"
-
-            nextState.State.k <>! initialStateKey
+            checkKeyModificationAfterMessage true Rekey
         yield testCase "Key is modified after encrypting final" <| fun () ->
-            let _, initialState = makeEncryptionState alice
-            let initialStateKey = getKeyCopy initialState
+            checkKeyModificationAfterMessage true Final
 
-            let nextState =
-                encryptPart initialState ([|1uy; 2uy; 3uy|], Final)
-                >>- snd
-                |> Result.failOnError "Encryption failed"
-
-            nextState.State.k <>! initialStateKey
+        yield testCase "Old state is disposed after encryption" <| fun () ->
+            updateResult {
+                let! (state : State) = Update.getState |> liftUpdate
+                state.State.k <>! zeroKey
+                do! encryptPart ([|1uy; 2uy; 3uy|], Message) >>- ignore
+                state.State.k =! zeroKey
+            }
+            |> encrypt alice
+            |> ignore
+        yield testCase "Old state is disposed after decryption" <| fun () ->
+            let h, c = encryptPart ([|1uy; 2uy; 3uy|], Message) |> encrypt alice
+            updateResult {
+                let! (state : State) = Update.getState |> liftUpdate
+                state.State.k <>! zeroKey
+                do! decryptPart c >>- ignore
+                state.State.k =! zeroKey
+            }
+            |> decrypt alice h
+            =! Ok ()
         yield testCase "Key is copied after encryption" <| fun () ->
-            let _, initialState = makeEncryptionState alice
-            let initialStateKey = getKeyCopy initialState
-
-            let nextState =
-                encryptPart initialState ([|1uy; 2uy; 3uy|], Message)
-                >>- snd
-                |> Result.failOnError "Encryption failed"
-            let nextStateKey = getKeyCopy nextState
-
-            initialState.Dispose()
-
-            initialStateKey <>! zeroKey
-            initialState.State.k =! zeroKey
-            initialStateKey =! nextStateKey
-            nextState.State.k =! nextStateKey
+            updateResult {
+                let! initialKeyCopy = getKeyCopy
+                let! (initialState : State) = Update.getState |> liftUpdate
+                do! encryptPart ([|1uy; 2uy; 3uy|], Message) >>- ignore
+                let! (nextState : State) = Update.getState |> liftUpdate
+                initialKeyCopy <>! zeroKey
+                initialState.State.k =! zeroKey
+                initialKeyCopy =! nextState.State.k
+            }
+            |> encrypt alice
+            |> ignore
         yield testCase "Key is copied after decryption" <| fun () ->
             let header, c =
-                let header, initialState = makeEncryptionState alice
-                encryptPart initialState ([|1uy; 2uy; 3uy|], Message)
-                >>- fun (c, _) -> header, c
-                |> Result.failOnError "Encryption failed"
+                encryptPart ([|1uy; 2uy; 3uy|], Message)
+                |> encrypt alice
 
-            let initialState =
-                State.MakeDecryptionState(alice, header)
-                |> Result.failOnError "Decryption state generation failed"
-            let initialStateKey = getKeyCopy initialState
-
-            let nextState =
-                decryptPart initialState c
-                >>- (fun (_, _, s) -> s)
-                |> Result.failOnError "Decryption failed"
-            let nextStateKey = getKeyCopy nextState
-
-            initialState.Dispose()
-
-            initialStateKey <>! zeroKey
-            initialState.State.k =! zeroKey
-            initialStateKey =! nextStateKey
-            nextState.State.k =! nextStateKey
+            updateResult {
+                let! initialKeyCopy = getKeyCopy
+                let! (initialState : State) = Update.getState |> liftUpdate
+                do! decryptPart c >>- ignore
+                let! (nextState : State) = Update.getState |> liftUpdate
+                initialKeyCopy <>! zeroKey
+                initialState.State.k =! zeroKey
+                initialKeyCopy =! nextState.State.k
+            }
+            |> decrypt alice header
+            =! Ok ()
 
         let testStreamRoundtripWithSize size () =
             let sourceBuffer = Array.init size byte
-
             use encryptionSource = new MemoryStream(sourceBuffer)
             let encryptionBuffer = Array.zeroCreate 500
             use encryptionDestination = new MemoryStream(encryptionBuffer)
-            encryptStream 10 alice encryptionSource encryptionDestination
-            =! Ok ()
+            let header, _ =
+                encryptStream size encryptionSource encryptionDestination
+                |> encrypt alice
 
             use decryptionSource =
                 let bufer =
@@ -202,11 +180,14 @@ let tests =
                         (int encryptionDestination.Position)
                         encryptionBuffer
                 new MemoryStream(bufer)
+
             let decryptionDestinationBuffer = Array.zeroCreate size
             use decryptionDestination =
                 new MemoryStream(decryptionDestinationBuffer)
 
-            decryptStream alice decryptionSource decryptionDestination =! Ok()
+            decryptStream decryptionSource decryptionDestination
+            |> decrypt alice header
+            =! Ok()
 
             decryptionDestinationBuffer =! sourceBuffer
 
