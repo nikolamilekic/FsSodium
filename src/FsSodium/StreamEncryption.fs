@@ -178,7 +178,7 @@ type StreamEncryptionError =
     | OutputStreamError of IOException
     | EncryptionError of PartEncryptionError
 let encryptStream
-    chunkSize (inputStream : Stream) (outputStream : Stream) = updateResult {
+    (chunkSize : int) (inputStream : Stream) (outputStream : Stream) = updateResult {
 
     let read buffer count =
         try Ok <| inputStream.Read(buffer, 0, count)
@@ -188,6 +188,13 @@ let encryptStream
         try Ok <| outputStream.Write(buffer, 0, count)
         with | :? IOException as exn -> Error <| OutputStreamError exn
         |> liftResult
+
+    let! encryptedChunkSize =
+        BitConverter.GetBytes(chunkSize)
+        |> fun chunkSize -> encryptPart (chunkSize, Message)
+        >>-! EncryptionError
+    do! write encryptedChunkSize (Array.length encryptedChunkSize)
+
     let cipherTextLength = getCipherTextLength chunkSize
     let cipherBuffer = Array.zeroCreate cipherTextLength
     let plainBuffer = Array.zeroCreate chunkSize
@@ -207,11 +214,6 @@ let encryptStream
         | _ -> return! inner (count + readBytes)
     }
 
-    let! encryptedChunkSize =
-        BitConverter.GetBytes(chunkSize)
-        |> fun chunkSize -> encryptPart (chunkSize, Message)
-        >>-! EncryptionError
-    do! write encryptedChunkSize (Array.length encryptedChunkSize)
     return! inner 0
 }
 
