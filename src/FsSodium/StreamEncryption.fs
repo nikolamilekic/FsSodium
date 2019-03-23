@@ -191,19 +191,19 @@ type StreamEncryptionError<'a, 'b> =
     | ReadError of 'a
     | WriteError of 'b
     | EncryptionError of PartEncryptionError
-let encryptStream (chunkSize : int) read write = updateResult {
+let encryptStream (chunkLength : int) read write = updateResult {
     let read = read >> Result.mapError ReadError >> liftResult
     let write = write >> Result.mapError WriteError >> liftResult
 
-    let! encryptedChunkSize =
-        BitConverter.GetBytes(chunkSize)
-        |> fun chunkSize -> encryptPart (chunkSize, Message)
+    let! encryptedChunkLength =
+        BitConverter.GetBytes(chunkLength)
+        |> fun chunkLength -> encryptPart (chunkLength, Message)
         >>-! EncryptionError
-    do! write (encryptedChunkSize, Array.length encryptedChunkSize)
+    do! write (encryptedChunkLength, Array.length encryptedChunkLength)
 
-    let cipherTextLength = getCipherTextLength chunkSize
+    let cipherTextLength = getCipherTextLength chunkLength
     let cipherBuffer = Array.zeroCreate cipherTextLength
-    let plainBuffer = Array.zeroCreate chunkSize
+    let plainBuffer = Array.zeroCreate chunkLength
     use __ = new Secret(plainBuffer)
 
     let rec inner count = updateResult {
@@ -226,25 +226,25 @@ type StreamDecryptionError<'a, 'b> =
     | WriteError of 'b
     | IncompleteStream
     | StreamIsTooLong
-    | ChunkSizeDecryptionError of PartDecryptionError
+    | ChunkLengthDecryptionError of PartDecryptionError
     | ChunkDecryptionError of PartDecryptionError
 let decryptStream read write = updateResult {
     let read = read >> Result.mapError ReadError >> liftResult
     let write = write >> Result.mapError WriteError >> liftResult
 
-    let! chunkSize = updateResult {
+    let! chunkLength = updateResult {
         let cipherLength = getCipherTextLength 4
         let cipher = Array.zeroCreate cipherLength
         match! read cipher with
         | readBytes, NotDone when readBytes = cipherLength ->
-            let! plain, _ = decryptPart cipher >>-! ChunkSizeDecryptionError
+            let! plain, _ = decryptPart cipher >>-! ChunkLengthDecryptionError
             return BitConverter.ToInt32(plain, 0)
         | _ -> return! Error IncompleteStream |> liftResult
     }
 
-    let cipherTextLength = getCipherTextLength chunkSize
+    let cipherTextLength = getCipherTextLength chunkLength
     let cipherBuffer = Array.zeroCreate cipherTextLength
-    let plainBuffer = Array.zeroCreate chunkSize
+    let plainBuffer = Array.zeroCreate chunkLength
     use __ = new Secret(plainBuffer)
 
     let rec inner () = updateResult {

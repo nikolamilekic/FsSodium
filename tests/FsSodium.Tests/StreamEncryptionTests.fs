@@ -165,14 +165,14 @@ let tests =
             |> decrypt alice header
             =! Ok ()
 
-        let testStreamRoundtripWithSize size () =
-            let sourceBuffer = Array.init size byte
+        let testStreamRoundtripWithLength length () =
+            let sourceBuffer = Array.init length byte
             use encryptionSource = new MemoryStream(sourceBuffer)
             let encryptionBuffer = Array.zeroCreate 500
             use encryptionDestination = new MemoryStream(encryptionBuffer)
             let header, _ =
                 encryptStream
-                    size
+                    length
                     (readFromStream encryptionSource)
                     (writeToStream encryptionDestination)
                 |> encrypt alice
@@ -184,7 +184,7 @@ let tests =
                         encryptionBuffer
                 new MemoryStream(bufer)
 
-            let decryptionDestinationBuffer = Array.zeroCreate size
+            let decryptionDestinationBuffer = Array.zeroCreate length
             use decryptionDestination =
                 new MemoryStream(decryptionDestinationBuffer)
 
@@ -200,6 +200,6 @@ let tests =
             [22; 30]
             |> Seq.map (fun x ->
                 testCase
-                    (sprintf "Stream roundtrip works with size %i" x)
-                    (testStreamRoundtripWithSize x))
+                    (sprintf "Stream roundtrip works with length %i" x)
+                    (testStreamRoundtripWithLength x))
     ]
