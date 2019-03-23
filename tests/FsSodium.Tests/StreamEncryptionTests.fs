@@ -6,9 +6,19 @@ open Swensen.Unquote
 open Milekic.YoLo
 open Milekic.YoLo.UpdateResult
 open Milekic.YoLo.UpdateResult.Operators
+open FsCheck
+
 open FsSodium.StreamEncryption
 
-do initializeSodium()
+initializeSodium()
+
+type Generators =
+    static member ChunkLength() =
+        Gen.choose(ChunkLength.Minimum, ChunkLength.Maximum)
+        |> Gen.map (ChunkLength.Create >> Result.failOnError "Chunk length could not be created")
+        |> Arb.fromGen
+let config = { FsCheckConfig.defaultConfig with arbitrary = [typeof<Generators>] }
+let testProperty =  testPropertyWithConfig config
 
 let zeroKey = Array.zeroCreate 32
 let stream = Seq.init 10 byte |> Seq.chunkBySize 3 |> Seq.toList
@@ -165,17 +175,23 @@ let tests =
             |> decrypt alice header
             =! Ok ()
 
+        let chunkLength =
+            ChunkLength.Create 10 |> Result.failOnError "Unable to create chunk length"
+
         let testStreamRoundtripWithLength length () =
-            let sourceBuffer = Array.init length byte
+            let sourceBuffer = FsSodium.Random.bytes length
             use encryptionSource = new MemoryStream(sourceBuffer)
             let encryptionBuffer = Array.zeroCreate 500
             use encryptionDestination = new MemoryStream(encryptionBuffer)
             let header, _ =
                 encryptStream
-                    length
+                    chunkLength
                     (readFromStream encryptionSource)
                     (writeToStream encryptionDestination)
                 |> encrypt alice
+
+            int encryptionDestination.Position
+            =! getCipherTextStreamLength chunkLength length
 
             use decryptionSource =
                 let bufer =
@@ -197,9 +213,14 @@ let tests =
             decryptionDestinationBuffer =! sourceBuffer
 
         yield!
-            [22; 30]
+            [5; 10; 22; 30]
             |> Seq.map (fun x ->
                 testCase
                     (sprintf "Stream roundtrip works with length %i" x)
                     (testStreamRoundtripWithLength x))
+
+        yield testProperty "Get plaintext / ciphertext length roundtrip" <| fun (chunk, length) ->
+            length > 0 ==> lazy
+            (getCipherTextStreamLength chunk length
+            |> getPlainTextStreamLength chunk) =! length
     ]

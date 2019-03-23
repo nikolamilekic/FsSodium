@@ -89,8 +89,10 @@ type StateUpdate =
 let setNewState x = (fun _ -> SetNew x, ()) |> Update |> liftUpdate
 
 type MessageType = Message | Final | Push | Rekey
-let getCipherTextLength plainTextLength = plainTextLength + macLength
-let getPlainTextLength cipherTextLength = cipherTextLength - macLength
+let getCipherTextLength plainTextLength =
+    if plainTextLength <= 0 then 0 else plainTextLength + macLength
+let getPlainTextLength cipherTextLength =
+    if cipherTextLength <= macLength then 0 else cipherTextLength - macLength
 
 type PartEncryptionError =
     | CipherTextBufferIsNotBigEnough
@@ -173,6 +175,25 @@ let decryptPart cipherText = UpdateResult.delay <| fun () ->
     decryptPartTo cipherText cipherTextLength plainText
     |> flip UpdateResult.map <| fun messageType -> plainText, messageType
 
+type ChunkLength = private ChunkLength of int
+    with
+        static member Minimum = 1
+        static member Maximum = Int32.MaxValue - macLength
+        static member Create = validateRange ChunkLength
+        member this.Value = let (ChunkLength x) = this in x
+
+let getCipherTextStreamLength (ChunkLength chunkLength) plainTextStreamLength =
+    if plainTextStreamLength <= 0 then 0 else
+    getCipherTextLength 4 +
+    plainTextStreamLength / chunkLength * getCipherTextLength chunkLength +
+    getCipherTextLength (plainTextStreamLength % chunkLength)
+let getPlainTextStreamLength (ChunkLength chunkLength) cipherTextStreamLength =
+    if cipherTextStreamLength <= 0 then 0 else
+    let lengthWithoutHeader = cipherTextStreamLength - getCipherTextLength 4
+    let encryptedChunkLength = getCipherTextLength chunkLength
+    lengthWithoutHeader / encryptedChunkLength * chunkLength +
+    getPlainTextLength (lengthWithoutHeader % encryptedChunkLength)
+
 type ReaderState = NotDone | Done
 
 let readFromStream (inputStream : Stream) buffer =
@@ -191,7 +212,7 @@ type StreamEncryptionError<'a, 'b> =
     | ReadError of 'a
     | WriteError of 'b
     | EncryptionError of PartEncryptionError
-let encryptStream (chunkLength : int) read write = updateResult {
+let encryptStream (ChunkLength chunkLength) read write = updateResult {
     let read = read >> Result.mapError ReadError >> liftResult
     let write = write >> Result.mapError WriteError >> liftResult
 
