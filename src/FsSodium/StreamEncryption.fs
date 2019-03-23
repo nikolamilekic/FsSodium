@@ -184,15 +184,13 @@ type ChunkLength = private ChunkLength of int
 
 let getCipherTextStreamLength (ChunkLength chunkLength) plainTextStreamLength =
     if plainTextStreamLength <= 0 then 0 else
-    getCipherTextLength 4 +
     plainTextStreamLength / chunkLength * getCipherTextLength chunkLength +
     getCipherTextLength (plainTextStreamLength % chunkLength)
 let getPlainTextStreamLength (ChunkLength chunkLength) cipherTextStreamLength =
     if cipherTextStreamLength <= 0 then 0 else
-    let lengthWithoutHeader = cipherTextStreamLength - getCipherTextLength 4
     let encryptedChunkLength = getCipherTextLength chunkLength
-    lengthWithoutHeader / encryptedChunkLength * chunkLength +
-    getPlainTextLength (lengthWithoutHeader % encryptedChunkLength)
+    cipherTextStreamLength / encryptedChunkLength * chunkLength +
+    getPlainTextLength (cipherTextStreamLength % encryptedChunkLength)
 
 type ReaderState = NotDone | Done
 
@@ -215,12 +213,6 @@ type StreamEncryptionError<'a, 'b> =
 let encryptStream (ChunkLength chunkLength) read write = updateResult {
     let read = read >> Result.mapError ReadError >> liftResult
     let write = write >> Result.mapError WriteError >> liftResult
-
-    let! encryptedChunkLength =
-        BitConverter.GetBytes(chunkLength)
-        |> fun chunkLength -> encryptPart (chunkLength, Message)
-        >>-! EncryptionError
-    do! write (encryptedChunkLength, Array.length encryptedChunkLength)
 
     let cipherTextLength = getCipherTextLength chunkLength
     let cipherBuffer = Array.zeroCreate cipherTextLength
@@ -247,21 +239,10 @@ type StreamDecryptionError<'a, 'b> =
     | WriteError of 'b
     | IncompleteStream
     | StreamIsTooLong
-    | ChunkLengthDecryptionError of PartDecryptionError
-    | ChunkDecryptionError of PartDecryptionError
-let decryptStream read write = updateResult {
+    | DecryptionError of PartDecryptionError
+let decryptStream (ChunkLength chunkLength) read write = updateResult {
     let read = read >> Result.mapError ReadError >> liftResult
     let write = write >> Result.mapError WriteError >> liftResult
-
-    let! chunkLength = updateResult {
-        let cipherLength = getCipherTextLength 4
-        let cipher = Array.zeroCreate cipherLength
-        match! read cipher with
-        | readBytes, NotDone when readBytes = cipherLength ->
-            let! plain, _ = decryptPart cipher >>-! ChunkLengthDecryptionError
-            return BitConverter.ToInt32(plain, 0)
-        | _ -> return! Error IncompleteStream |> liftResult
-    }
 
     let cipherTextLength = getCipherTextLength chunkLength
     let cipherBuffer = Array.zeroCreate cipherTextLength
@@ -273,7 +254,7 @@ let decryptStream read write = updateResult {
         let plainTextLength = getPlainTextLength readBytes
         let! messageType =
             decryptPartTo cipherBuffer readBytes plainBuffer
-            >>-! ChunkDecryptionError
+            >>-! DecryptionError
         do! write(plainBuffer, plainTextLength)
         match messageType, state with
         | Final, Done -> return ()

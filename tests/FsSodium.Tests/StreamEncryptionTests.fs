@@ -205,6 +205,7 @@ let tests =
                 new MemoryStream(decryptionDestinationBuffer)
 
             decryptStream
+                chunkLength
                 (readFromStream decryptionSource)
                 (writeToStream decryptionDestination)
             |> decrypt alice header
