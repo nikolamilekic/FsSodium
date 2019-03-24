@@ -9,8 +9,20 @@ let private secretKeyLength = Interop.crypto_box_secretkeybytes()
 let private nonceLength = Interop.crypto_box_noncebytes()
 let private macLength = Interop.crypto_box_macbytes()
 
+type PublicKeyValidationError = KeyBufferIsOfWrongLength
 type PublicKey = private PublicKey of byte[]
+    with
+        member this.Bytes = let (PublicKey x) = this in x
+        static member Length = publicKeyLength
+        static member Validate x =
+            if Array.length x = publicKeyLength
+            then Ok <| PublicKey x
+            else Error KeyBufferIsOfWrongLength
+
 type KeyGenerationError = SodiumError of int
+type SecretKeyValidationError =
+    | SecretKeyIsOfWrongLength
+    | PublicKeyIsOfWrongLength
 type SecretKey private (secretKey, publicKey) =
     inherit Secret(secretKey)
     member __.PublicKey = publicKey
@@ -21,9 +33,24 @@ type SecretKey private (secretKey, publicKey) =
         let result = Interop.crypto_box_keypair(publicKey, secretKey)
         if result = 0 then Ok secret
         else (secret :> IDisposable).Dispose(); Error <| SodiumError result
+    static member Length = secretKeyLength
+    static member ValidateDisposable (secretKey, publicKey) =
+        if Array.length secretKey <> secretKeyLength
+        then Error SecretKeyIsOfWrongLength
+        elif Array.length publicKey <> publicKeyLength
+        then Error PublicKeyIsOfWrongLength
+        else Ok <| new SecretKey(secretKey, PublicKey publicKey)
 
+type NonceValidationError = NonceBufferIfOfWrongLength
 type Nonce = private Nonce of byte[]
-    with static member Generate() = Random.bytes nonceLength |> Nonce
+    with
+        member this.Bytes = let (Nonce x) = this in x
+        static member Generate() = Random.bytes nonceLength |> Nonce
+        static member Validate x =
+            if Array.length x = nonceLength
+            then Ok <| Nonce x
+            else Error NonceBufferIfOfWrongLength
+        static member Length = nonceLength
 
 let getCipherTextLength plainTextLength = plainTextLength + macLength
 let getPlainTextLength cipherTextLength = cipherTextLength - macLength

@@ -23,6 +23,7 @@ let private pushTag =
 type KeyGenerationFromPasswordError =
     | WrongKeyLength of ValidateRangeError
     | HashPasswordError of PasswordHashing.HashPasswordError
+type KeyValidationError = WrongKeyLength
 type Key private (key) =
     inherit Secret(key)
     static member GenerateDisposable() =
@@ -32,18 +33,26 @@ type Key private (key) =
     static member FromPasswordDisposable(parameters, password) = result {
         let! keyLength =
             PasswordHashing.KeyLength.Create keyLength
-            |> Result.mapError WrongKeyLength
+            |> Result.mapError KeyGenerationFromPasswordError.WrongKeyLength
         let! key =
             PasswordHashing.hashPassword keyLength parameters password
             |> Result.mapError HashPasswordError
         return new Key(key)
     }
+    static member Length = keyLength
+    static member ValidateDisposable x =
+        if Array.length x = keyLength
+        then Ok <| new Key(x)
+        else Error WrongKeyLength
 module Header =
     let length = Interop.crypto_secretstream_xchacha20poly1305_headerbytes()
+type HeaderValidationError = WrongHeaderLength
 type Header = private Header of byte[]
     with
-        static member FromBytes x =
-            if Array.length x = Header.length then Header x |> Some else None
+        static member Validate x =
+            if Array.length x = Header.length
+            then Ok <| Header x
+            else Error WrongHeaderLength
         member this.Bytes = let (Header x) = this in x
 type EncryptionStateGenerationError = SodiumError of int
 type DecryptionStateGenerationError = SodiumError of int
