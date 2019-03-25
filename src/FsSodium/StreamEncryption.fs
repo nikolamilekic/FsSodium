@@ -189,7 +189,7 @@ type ChunkLength = private ChunkLength of int
         static member Minimum = 1
         static member Maximum = Int32.MaxValue - macLength
         static member Create = validateRange ChunkLength
-        member this.Value = let (ChunkLength x) = this in x
+        member this.AsInt = let (ChunkLength x) = this in x
 
 let getCipherTextStreamLength (ChunkLength chunkLength) plainTextStreamLength =
     if plainTextStreamLength <= 0 then 0 else
