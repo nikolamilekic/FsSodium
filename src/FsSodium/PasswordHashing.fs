@@ -19,6 +19,7 @@ type NumberOfOperations = private NumberOfOperations of uint64
         static member Maximum = NumberOfOperations.maximum
         static member Minimum = NumberOfOperations.minimum
         static member Create = validateRange (uint64 >> NumberOfOperations)
+        member this.AsInt = let (NumberOfOperations x) = this in int x
 
 module internal Algorithm =
     let defaultAlgorithmInt = Interop.crypto_pwhash_alg_default()
@@ -38,6 +39,7 @@ type MemoryLimit = private MemoryLimit of uint64
         static member Maximum = MemoryLimit.maximum
         static member Minimum = MemoryLimit.minimum
         static member Create = validateRange (uint64 >> MemoryLimit)
+        member this.AsInt = let (MemoryLimit x) = this in int x
 
 type HashPasswordParameters = {
     NumberOfOperations : NumberOfOperations
