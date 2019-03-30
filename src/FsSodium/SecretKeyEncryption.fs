@@ -11,6 +11,7 @@ let private macLength = Interop.crypto_secretbox_macbytes()
 type KeyGenerationFromPasswordError =
     | WrongKeyLength of ValidateRangeError
     | HashPasswordError of PasswordHashing.HashPasswordError
+type KeyValidationError = KeyIsOfWrongLength
 type Key private (key) =
     inherit Secret(key)
     static member GenerateDisposable() =
@@ -25,8 +26,21 @@ type Key private (key) =
             >>-! HashPasswordError
         return new Key(key)
     }
+    static member Length = keyLength
+    static member ValidateDisposable key =
+        if Array.length key <> keyLength
+        then Error KeyIsOfWrongLength
+        else Ok <| new Key(key)
+type NonceValidationError = NonceBufferIfOfWrongLength
 type Nonce = private Nonce of byte[]
-    with static member Generate() = Random.bytes nonceLength |> Nonce
+    with
+        member this.Bytes = let (Nonce x) = this in x
+        static member Generate() = Random.bytes nonceLength |> Nonce
+        static member Validate x =
+            if Array.length x = nonceLength
+            then Ok <| Nonce x
+            else Error NonceBufferIfOfWrongLength
+        static member Length = nonceLength
 let getCipherTextLength plainTextLength = plainTextLength + macLength
 let getPlainTextLength cipherTextLength = cipherTextLength - macLength
 
