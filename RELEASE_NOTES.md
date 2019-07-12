@@ -5,6 +5,7 @@
 * Added PasswordHashing
 * Added Secret
 * Added StreamEncrypted
+* Added public key from secret key computation for both public key authentication and encryption
 
 ### 0.1.1 - 2018/04/25
 * Moved YoLo to FsSodium namespace

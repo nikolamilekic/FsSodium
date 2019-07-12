@@ -54,4 +54,6 @@ let publicKeyAuthenticationTests =
             encryptWithFixture nonce plainText
             |> decrypt eve alice.PublicKey nonce
             =! (Error <| SodiumError -1)
+        yield testCase "Public key computation from secret key works" <| fun () ->
+            PublicKey.Compute alice.Secret =! Ok alice.PublicKey
     ]

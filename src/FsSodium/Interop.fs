@@ -50,6 +50,9 @@ extern int crypto_sign_verify_detached(
 extern int crypto_sign_keypair(byte[] publicKey, byte[] secretKey);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_sign_ed25519_sk_to_pk(byte[] publicKey, byte[] secretKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_box_publickeybytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
@@ -81,6 +84,9 @@ extern int crypto_box_open_easy(
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_box_keypair(byte[] publicKey, byte[] secretKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_scalarmult_base(byte[] publicKey, byte[] secretKey);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern void randombytes_buf(byte[] buffer, uint64 bufferLength);

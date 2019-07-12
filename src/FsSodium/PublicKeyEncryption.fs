@@ -10,6 +10,9 @@ let private nonceLength = Interop.crypto_box_noncebytes()
 let private macLength = Interop.crypto_box_macbytes()
 
 type PublicKeyValidationError = KeyBufferIsOfWrongLength
+type PublicKeyComputationError =
+    | SecretKeyIsOfWrongLength
+    | SodiumError of int
 type PublicKey = private PublicKey of byte[]
     with
         member this.Bytes = let (PublicKey x) = this in x
@@ -18,6 +21,14 @@ type PublicKey = private PublicKey of byte[]
             if Array.length x = publicKeyLength
             then Ok <| PublicKey x
             else Error KeyBufferIsOfWrongLength
+        static member Compute secretKey =
+            if Array.length secretKey <> secretKeyLength
+            then Error PublicKeyComputationError.SecretKeyIsOfWrongLength
+            else
+            let publicKey = Array.zeroCreate publicKeyLength
+            let result = Interop.crypto_scalarmult_base(publicKey, secretKey)
+            if result = 0 then Ok <| PublicKey publicKey
+            else Error <| SodiumError result
 
 type KeyGenerationError = SodiumError of int
 type SecretKeyValidationError =

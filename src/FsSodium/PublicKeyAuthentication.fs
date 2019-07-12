@@ -5,8 +5,20 @@ open System
 let private macLength = Interop.crypto_sign_bytes()
 let private publicKeyLength = Interop.crypto_sign_publickeybytes()
 let private secretKeyLength = Interop.crypto_sign_secretkeybytes()
+type PublicKeyComputationError =
+    | SecretKeyIsOfWrongLength
+    | SodiumError of int
 
 type PublicKey = private PublicKey of byte[]
+    with
+        static member Compute secretKey =
+            if Array.length secretKey <> secretKeyLength
+            then Error PublicKeyComputationError.SecretKeyIsOfWrongLength
+            else
+            let publicKey = Array.zeroCreate publicKeyLength
+            let result = Interop.crypto_sign_ed25519_sk_to_pk(publicKey, secretKey)
+            if result = 0 then Ok <| PublicKey publicKey
+            else Error <| SodiumError result
 type KeyGenerationError = SodiumError of int
 type SecretKey private (secretKey, publicKey) =
     inherit Secret(secretKey)

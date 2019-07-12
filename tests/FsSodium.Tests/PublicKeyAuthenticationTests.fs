@@ -38,4 +38,6 @@ let publicKeyAuthenticationTests =
                 SecretKey.GenerateDisposable() >>- fun x -> x.PublicKey
                 |> Result.failOnError "Eve key generation failed"
             verify pkEve plainText mac =! (Error <| SodiumError -1)
+        yield testCase "Public key computation from secret key works" <| fun () ->
+            PublicKey.Compute secretKey.Secret =! Ok secretKey.PublicKey
     ]
