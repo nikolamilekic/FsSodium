@@ -33,7 +33,6 @@ type PublicKey = private PublicKey of byte[]
 type KeyGenerationError = SodiumError of int
 type SecretKeyValidationError =
     | SecretKeyIsOfWrongLength
-    | PublicKeyIsOfWrongLength
 type SecretKey private (secretKey, publicKey) =
     inherit Secret(secretKey)
     member __.PublicKey = publicKey
@@ -48,9 +47,7 @@ type SecretKey private (secretKey, publicKey) =
     static member ValidateDisposable (secretKey, publicKey) =
         if Array.length secretKey <> secretKeyLength
         then Error SecretKeyIsOfWrongLength
-        elif Array.length publicKey <> publicKeyLength
-        then Error PublicKeyIsOfWrongLength
-        else Ok <| new SecretKey(secretKey, PublicKey publicKey)
+        else Ok <| new SecretKey(secretKey, publicKey)
 
 type NonceValidationError = NonceBufferIfOfWrongLength
 type Nonce = private Nonce of byte[]
