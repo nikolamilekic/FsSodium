@@ -8,7 +8,7 @@ open Milekic.YoLo
 
 do initializeSodium()
 
-let alice = Key.GenerateDisposable()
+let alice = Key.Generate()
 let encryptWithFixture =
     uncurry <| encrypt alice
     >> Result.failOnError "Encryption failed"
@@ -41,6 +41,6 @@ let tests =
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
             encryptWithFixture nonce plainText
-            |> decrypt (Key.GenerateDisposable()) nonce
+            |> decrypt (Key.Generate()) nonce
             =! (Error <| SodiumError -1)
     ]

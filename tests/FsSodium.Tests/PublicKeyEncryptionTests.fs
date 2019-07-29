@@ -9,16 +9,16 @@ open PublicKeyEncryption
 do initializeSodium()
 
 let generateKey =
-    SecretKey.GenerateDisposable >> Result.failOnError "Key generation failed"
+    SecretKey.Generate >> Result.failOnError "Key generation failed"
 
 let alice = generateKey()
 let bob = generateKey()
 let eve = generateKey()
 let encryptWithFixture =
-    uncurry <| encrypt alice bob.PublicKey
+    uncurry <| encrypt (fst alice) (snd bob)
     >> Result.failOnError "Encryption failed"
     |> curry
-let decryptWithFixture = decrypt bob alice.PublicKey
+let decryptWithFixture = decrypt (fst bob) (snd alice)
 
 [<Tests>]
 let publicKeyAuthenticationTests =
@@ -26,9 +26,9 @@ let publicKeyAuthenticationTests =
         yield testCase "Alice to herself roundtrip works" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
-            encrypt alice alice.PublicKey nonce plainText
+            encrypt (fst alice) (snd alice) nonce plainText
             |> Result.failOnError "Encryption failed"
-            |> decrypt alice alice.PublicKey nonce
+            |> decrypt (fst alice) (snd alice) nonce
             =! Ok plainText
         yield testCase "Alice and bob roundtrip works" <| fun () ->
             let nonce = Nonce.Generate()
@@ -52,8 +52,8 @@ let publicKeyAuthenticationTests =
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
             encryptWithFixture nonce plainText
-            |> decrypt eve alice.PublicKey nonce
+            |> decrypt (fst eve) (snd alice) nonce
             =! (Error <| SodiumError -1)
         yield testCase "Public key computation from secret key works" <| fun () ->
-            PublicKey.Compute alice.Secret =! Ok alice.PublicKey
+            PublicKey.Compute (fst alice) =! Ok (snd alice)
     ]

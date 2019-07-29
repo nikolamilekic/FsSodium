@@ -1,5 +1,6 @@
 module FsSodium.Tests.StreamEncryptionTests
 
+open System
 open System.IO
 open Expecto
 open Swensen.Unquote
@@ -14,8 +15,8 @@ initializeSodium()
 
 type Generators =
     static member ChunkLength() =
-        Gen.choose(ChunkLength.Minimum, ChunkLength.Maximum)
-        |> Gen.map (ChunkLength.Create >> Result.failOnError "Chunk length could not be created")
+        Gen.choose(1, (Int32.MaxValue - macLength))
+        |> Gen.map (ChunkLength.Validate >> Result.failOnError "Chunk length could not be created")
         |> Arb.fromGen
 let config = { FsCheckConfig.defaultConfig with arbitrary = [typeof<Generators>] }
 let testProperty =  testPropertyWithConfig config
@@ -59,7 +60,7 @@ let decrypt key header x =
     let state = makeDecryptionState key header
     run state x |> Result.map fst
 
-let alice = Key.GenerateDisposable()
+let alice = Key.Generate()
 let encryptWithFixture () = encrypt alice <| streamEncryptionJob
 let decryptWithFixture (header, parts) =
     List.ofSeq parts |> makeStreamDecryptionJob |> decrypt alice header
@@ -103,7 +104,7 @@ let tests =
             encryptWithFixture ()
             |> fun (header, parts) ->
                 makeStreamDecryptionJob parts
-                |> decrypt (Key.GenerateDisposable()) header
+                |> decrypt (Key.Generate()) header
             =! (Error <| PartDecryptionError.SodiumError -1)
 
         let checkKeyModificationAfterMessage shouldBeModified messageType =
@@ -176,7 +177,7 @@ let tests =
             =! Ok ()
 
         let chunkLength =
-            ChunkLength.Create 10 |> Result.failOnError "Unable to create chunk length"
+            ChunkLength.Validate 10 |> Result.failOnError "Unable to create chunk length"
 
         let testStreamRoundtripWithLength length () =
             let sourceBuffer = FsSodium.Random.bytes length

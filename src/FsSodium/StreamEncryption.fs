@@ -3,12 +3,12 @@ module FsSodium.StreamEncryption
 open System
 open System.IO
 open Milekic.YoLo
-open Milekic.YoLo.Validation
 open Milekic.YoLo.Update
 open Milekic.YoLo.UpdateResult
 open Milekic.YoLo.UpdateResult.Operators
+open Extensions
 
-let private macLength =
+let internal macLength =
     Interop.crypto_secretstream_xchacha20poly1305_abytes()
 let private keyLength = Interop.crypto_secretstream_xchacha20poly1305_keybytes()
 let private messageTag =
@@ -20,42 +20,28 @@ let private rekeyTag =
 let private pushTag =
     byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_push()
 
-type KeyGenerationFromPasswordError =
-    | WrongKeyLength of ValidateRangeError
-    | HashPasswordError of PasswordHashing.HashPasswordError
-type KeyValidationError = WrongKeyLength
+let private passwordHashingKeyLength =
+    PasswordHashing.KeyLength.Validate keyLength
+    |> Result.failOnError "Key length is not supported."
 type Key private (key) =
     inherit Secret(key)
-    static member GenerateDisposable() =
+    static member Generate() =
         let key = new Key(Array.zeroCreate keyLength)
         Interop.crypto_secretstream_xchacha20poly1305_keygen(key.Secret)
         key
-    static member FromPasswordDisposable(parameters, password) = result {
-        let! keyLength =
-            PasswordHashing.KeyLength.Create keyLength
-            |> Result.mapError KeyGenerationFromPasswordError.WrongKeyLength
-        let! key =
-            PasswordHashing.hashPassword keyLength parameters password
-            |> Result.mapError HashPasswordError
-        return new Key(key)
-    }
+    static member FromPassword(parameters, password) =
+        PasswordHashing.hashPassword passwordHashingKeyLength parameters password
+        |> Result.map (fun x -> new Key(x))
     static member Length = keyLength
-    static member ValidateDisposable x =
-        if Array.length x = keyLength
-        then Ok <| new Key(x)
-        else Error WrongKeyLength
+    static member Validate x =
+        validateArrayLength keyLength (fun x -> new Key(x)) x
 module Header =
     let length = Interop.crypto_secretstream_xchacha20poly1305_headerbytes()
-type HeaderValidationError = WrongHeaderLength
 type Header = private Header of byte[]
     with
-        static member Validate x =
-            if Array.length x = Header.length
-            then Ok <| Header x
-            else Error WrongHeaderLength
-        member this.Bytes = let (Header x) = this in x
-type EncryptionStateGenerationError = SodiumError of int
-type DecryptionStateGenerationError = SodiumError of int
+        static member Length = Header.length
+        static member Validate x = validateArrayLength Header.length Header x
+        member this.Value = let (Header x) = this in x
 type State internal (state) =
     static member MakeDecryptionState(key : Key, Header header) =
         let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
@@ -74,7 +60,7 @@ type State internal (state) =
                 header,
                 key.Secret)
         if result = 0 then Ok (Header header, new State(s))
-        else Error <| EncryptionStateGenerationError.SodiumError result
+        else Error <| SodiumError result
     member internal __.State = state
     member __.Dispose() =
         let clear x =
@@ -186,10 +172,9 @@ let decryptPart cipherText = UpdateResult.delay <| fun () ->
 
 type ChunkLength = private ChunkLength of int
     with
-        static member Minimum = 1
-        static member Maximum = Int32.MaxValue - macLength
-        static member Create = validateRange ChunkLength
-        member this.AsInt = let (ChunkLength x) = this in x
+        static member Validate x =
+            validateRange 1 (Int32.MaxValue - macLength) ChunkLength x
+        member this.Value = let (ChunkLength x) = this in x
 
 let getCipherTextStreamLength (ChunkLength chunkLength) plainTextStreamLength =
     if plainTextStreamLength <= 0 then 0 else

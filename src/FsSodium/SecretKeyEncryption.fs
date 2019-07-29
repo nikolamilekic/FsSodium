@@ -6,40 +6,28 @@ open Milekic.YoLo.Validation
 open Milekic.YoLo.Result.Operators
 
 let private keyLength = Interop.crypto_secretbox_keybytes()
+let private passwordHashingKeyLength =
+    PasswordHashing.KeyLength.Validate keyLength
+    |> Result.failOnError "Key length is not supported."
 let private nonceLength = Interop.crypto_secretbox_noncebytes()
 let private macLength = Interop.crypto_secretbox_macbytes()
-type KeyGenerationFromPasswordError =
-    | WrongKeyLength of ValidateRangeError
-    | HashPasswordError of PasswordHashing.HashPasswordError
-type KeyValidationError = KeyIsOfWrongLength
 type Key private (key) =
     inherit Secret(key)
-    static member GenerateDisposable() =
+    static member Generate() =
         let key = new Key(Array.zeroCreate keyLength)
         Interop.crypto_secretbox_keygen(key.Secret)
         key
-    static member FromPasswordDisposable(parameters, password) = result {
-        let! keyLength =
-            PasswordHashing.KeyLength.Create keyLength >>-! WrongKeyLength
-        let! key =
-            PasswordHashing.hashPassword keyLength parameters password
-            >>-! HashPasswordError
-        return new Key(key)
-    }
+    static member FromPassword(parameters, password) =
+        PasswordHashing.hashPassword passwordHashingKeyLength parameters password
+        |> Result.map (fun x -> new Key(x))
     static member Length = keyLength
-    static member ValidateDisposable key =
-        if Array.length key <> keyLength
-        then Error KeyIsOfWrongLength
-        else Ok <| new Key(key)
-type NonceValidationError = NonceBufferIfOfWrongLength
+    static member Validate x =
+        validateArrayLength keyLength (fun x -> new Key(x)) x
 type Nonce = private Nonce of byte[]
     with
-        member this.Bytes = let (Nonce x) = this in x
+        member this.Value = let (Nonce x) = this in x
         static member Generate() = Random.bytes nonceLength |> Nonce
-        static member Validate x =
-            if Array.length x = nonceLength
-            then Ok <| Nonce x
-            else Error NonceBufferIfOfWrongLength
+        static member Validate x = validateArrayLength nonceLength Nonce x
         static member Length = nonceLength
 let getCipherTextLength plainTextLength = plainTextLength + macLength
 let getPlainTextLength cipherTextLength = cipherTextLength - macLength

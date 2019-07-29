@@ -9,10 +9,10 @@ open PublicKeyAuthentication
 
 do initializeSodium()
 
-let secretKey =
-    SecretKey.GenerateDisposable() |> Result.failOnError "Key generation failed"
+let secretKey, publicKey =
+    SecretKey.Generate() |> Result.failOnError "Key generation failed"
 let signWithFixture = sign secretKey >> Result.failOnError "Signing failed"
-let verifyWithFixture = verify (secretKey.PublicKey)
+let verifyWithFixture = verify publicKey
 
 [<Tests>]
 let publicKeyAuthenticationTests =
@@ -23,8 +23,9 @@ let publicKeyAuthenticationTests =
             verifyWithFixture plainText mac =! Ok ()
         yield testCase "Verify fails for modified signature" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
-            let mac = signWithFixture plainText
+            let mac = (signWithFixture plainText).Value
             mac.[0] <- if mac.[0] = 0uy then 1uy else 0uy
+            let mac = Mac.Validate mac |> Result.failOnError "Bad mac"
             verifyWithFixture plainText mac =! (Error <| SodiumError -1)
         yield testCase "Verify fails for modified message" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
@@ -35,9 +36,9 @@ let publicKeyAuthenticationTests =
             let plainText = [|1uy; 2uy; 3uy|]
             let mac = signWithFixture plainText
             let pkEve =
-                SecretKey.GenerateDisposable() >>- fun x -> x.PublicKey
+                SecretKey.Generate() >>- snd
                 |> Result.failOnError "Eve key generation failed"
             verify pkEve plainText mac =! (Error <| SodiumError -1)
         yield testCase "Public key computation from secret key works" <| fun () ->
-            PublicKey.Compute secretKey.Secret =! Ok secretKey.PublicKey
+            PublicKey.Compute secretKey =! Ok publicKey
     ]

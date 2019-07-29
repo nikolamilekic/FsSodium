@@ -9,55 +9,35 @@ let private secretKeyLength = Interop.crypto_box_secretkeybytes()
 let private nonceLength = Interop.crypto_box_noncebytes()
 let private macLength = Interop.crypto_box_macbytes()
 
-type PublicKeyValidationError = KeyBufferIsOfWrongLength
-type PublicKeyComputationError =
-    | SecretKeyIsOfWrongLength
-    | SodiumError of int
-type PublicKey = private PublicKey of byte[]
+type SecretKey private (secretKey) =
+    inherit Secret(secretKey)
+    static member Generate() =
+        let publicKey = Array.zeroCreate publicKeyLength
+        let secretKey = Array.zeroCreate secretKeyLength
+        let secret = new SecretKey(secretKey)
+        let result = Interop.crypto_box_keypair(publicKey, secretKey)
+        if result = 0 then Ok <| (secret, PublicKey publicKey)
+        else (secret :> IDisposable).Dispose(); Error <| SodiumError result
+    static member Length = secretKeyLength
+    static member Validate x =
+        validateArrayLength secretKeyLength (fun x -> new SecretKey(x)) x
+and PublicKey = private PublicKey of byte[]
     with
         member this.Bytes = let (PublicKey x) = this in x
         static member Length = publicKeyLength
         static member Validate x =
-            if Array.length x = publicKeyLength
-            then Ok <| PublicKey x
-            else Error KeyBufferIsOfWrongLength
-        static member Compute secretKey =
-            if Array.length secretKey <> secretKeyLength
-            then Error PublicKeyComputationError.SecretKeyIsOfWrongLength
-            else
+            validateArrayLength publicKeyLength PublicKey x
+        static member Compute (secretKey : SecretKey) =
             let publicKey = Array.zeroCreate publicKeyLength
-            let result = Interop.crypto_scalarmult_base(publicKey, secretKey)
+            let result =
+                Interop.crypto_scalarmult_base(publicKey, secretKey.Secret)
             if result = 0 then Ok <| PublicKey publicKey
             else Error <| SodiumError result
-
-type KeyGenerationError = SodiumError of int
-type SecretKeyValidationError =
-    | SecretKeyIsOfWrongLength
-type SecretKey private (secretKey, publicKey) =
-    inherit Secret(secretKey)
-    member __.PublicKey = publicKey
-    static member GenerateDisposable() =
-        let publicKey = Array.zeroCreate publicKeyLength
-        let secretKey = Array.zeroCreate secretKeyLength
-        let secret = new SecretKey(secretKey, PublicKey publicKey)
-        let result = Interop.crypto_box_keypair(publicKey, secretKey)
-        if result = 0 then Ok secret
-        else (secret :> IDisposable).Dispose(); Error <| SodiumError result
-    static member Length = secretKeyLength
-    static member ValidateDisposable (secretKey, publicKey) =
-        if Array.length secretKey <> secretKeyLength
-        then Error SecretKeyIsOfWrongLength
-        else Ok <| new SecretKey(secretKey, publicKey)
-
-type NonceValidationError = NonceBufferIfOfWrongLength
 type Nonce = private Nonce of byte[]
     with
-        member this.Bytes = let (Nonce x) = this in x
+        member this.Value = let (Nonce x) = this in x
         static member Generate() = Random.bytes nonceLength |> Nonce
-        static member Validate x =
-            if Array.length x = nonceLength
-            then Ok <| Nonce x
-            else Error NonceBufferIfOfWrongLength
+        static member Validate x = validateArrayLength nonceLength Nonce x
         static member Length = nonceLength
 
 let getCipherTextLength plainTextLength = plainTextLength + macLength
