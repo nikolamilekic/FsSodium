@@ -4,12 +4,12 @@ open System.Reflection
 
 [<assembly: AssemblyTitleAttribute("FsSodium")>]
 [<assembly: AssemblyProductAttribute("FsSodium")>]
-[<assembly: AssemblyVersionAttribute("0.2")>]
-[<assembly: AssemblyFileVersionAttribute("0.2")>]
+[<assembly: AssemblyVersionAttribute("0.3")>]
+[<assembly: AssemblyFileVersionAttribute("0.3")>]
 do ()
 
 module internal AssemblyVersionInformation =
     let [<Literal>] AssemblyTitle = "FsSodium"
     let [<Literal>] AssemblyProduct = "FsSodium"
-    let [<Literal>] AssemblyVersion = "0.2"
-    let [<Literal>] AssemblyFileVersion = "0.2"
+    let [<Literal>] AssemblyVersion = "0.3"
+    let [<Literal>] AssemblyFileVersion = "0.3"

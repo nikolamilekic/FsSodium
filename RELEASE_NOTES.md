@@ -1,3 +1,6 @@
+### 0.3 - Unreleased
+* Refactored validation logic
+
 ### 0.2 - 2019/07/30
 * Switched to using Milekic.YoLo library
 * PublicKeyEncryption.encrypt now returns nonce in addition to cipher text to simplify interface usage
