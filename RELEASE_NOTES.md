@@ -1,11 +1,12 @@
-### 0.2-dev - Unreleased
+### 0.2 - 2019/07/30
 * Switched to using Milekic.YoLo library
 * PublicKeyEncryption.encrypt now returns nonce in addition to cipher text to simplify interface usage
 * Added Random
 * Added PasswordHashing
 * Added Secret
 * Added StreamEncrypted
-* Added public key from secret key computation for both public key authentication and encryption
+* Added 'public key from secret key' computation for both public key authentication and encryption
+* Updated FSharp.Core references as per guidelines
 
 ### 0.1.1 - 2018/04/25
 * Moved YoLo to FsSodium namespace
