@@ -1,5 +1,6 @@
 ### 0.3 - Unreleased
 * Refactored validation logic
+* Added Hashing
 
 ### 0.2 - 2019/07/30
 * Switched to using Milekic.YoLo library

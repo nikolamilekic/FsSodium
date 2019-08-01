@@ -233,3 +233,49 @@ extern int crypto_secretstream_xchacha20poly1305_init_push(
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern void crypto_secretstream_xchacha20poly1305_keygen(byte[] key);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash(
+    byte[] hash,
+    uint64 hashLength,
+    byte[] input,
+    uint64 inputLength,
+    byte[] key,
+    uint64 keyLength);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash_bytes_min();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash_bytes_max();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash_bytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash_keybytes_min();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash_keybytes_max();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash_keybytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash_init(
+    byte[] state,
+    byte[] key,
+    uint64 keyLength,
+    uint64 hashLength);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash_update(
+    byte[] state,
+    byte[] input,
+    uint64 inputLength);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_generichash_final(
+    byte[] state,
+    byte[] output,
+    uint64 outputLength);
