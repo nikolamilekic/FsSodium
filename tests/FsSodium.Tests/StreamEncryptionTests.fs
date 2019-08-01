@@ -185,10 +185,7 @@ let tests =
             let encryptionBuffer = Array.zeroCreate 500
             use encryptionDestination = new MemoryStream(encryptionBuffer)
             let header, _ =
-                encryptStream
-                    chunkLength
-                    (readFromStream encryptionSource)
-                    (writeToStream encryptionDestination)
+                encryptStream chunkLength encryptionSource encryptionDestination
                 |> encrypt alice
 
             int encryptionDestination.Position
@@ -205,10 +202,7 @@ let tests =
             use decryptionDestination =
                 new MemoryStream(decryptionDestinationBuffer)
 
-            decryptStream
-                chunkLength
-                (readFromStream decryptionSource)
-                (writeToStream decryptionDestination)
+            decryptStream chunkLength decryptionSource decryptionDestination
             |> decrypt alice header
             =! Ok()
 

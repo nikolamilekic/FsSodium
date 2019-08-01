@@ -186,9 +186,9 @@ let getPlainTextStreamLength (ChunkLength chunkLength) cipherTextStreamLength =
     cipherTextStreamLength / encryptedChunkLength * chunkLength +
     getPlainTextLength (cipherTextStreamLength % encryptedChunkLength)
 
-type ReaderState = NotDone | Done
+type private ReaderState = NotDone | Done
 
-let readFromStream (inputStream : Stream) buffer =
+let private readFromStream (inputStream : Stream) buffer =
     try
         let readBytes = inputStream.Read(buffer, 0, Array.length buffer)
         let state = if inputStream.Position < inputStream.Length
@@ -196,17 +196,17 @@ let readFromStream (inputStream : Stream) buffer =
         Ok (readBytes, state)
     with | :? IOException as exn -> Error exn
 
-let writeToStream (outputStream : Stream) (buffer, count) =
+let private writeToStream (outputStream : Stream) (buffer, count) =
     try outputStream.Write(buffer, 0, count) |> Ok
     with | :? IOException as exn -> Error exn
 
-type StreamEncryptionError<'a, 'b> =
-    | ReadError of 'a
-    | WriteError of 'b
+type StreamEncryptionError =
+    | ReadError of IOException
+    | WriteError of IOException
     | EncryptionError of PartEncryptionError
-let encryptStream (ChunkLength chunkLength) read write = updateResult {
-    let read = read >> Result.mapError ReadError >> liftResult
-    let write = write >> Result.mapError WriteError >> liftResult
+let encryptStream (ChunkLength chunkLength) input output = updateResult {
+    let read = readFromStream input >> Result.mapError ReadError >> liftResult
+    let write = writeToStream output >> Result.mapError WriteError >> liftResult
 
     let cipherTextLength = getCipherTextLength chunkLength
     let cipherBuffer = Array.zeroCreate cipherTextLength
@@ -228,15 +228,15 @@ let encryptStream (ChunkLength chunkLength) read write = updateResult {
     return! inner 0
 }
 
-type StreamDecryptionError<'a, 'b> =
-    | ReadError of 'a
-    | WriteError of 'b
+type StreamDecryptionError =
+    | ReadError of IOException
+    | WriteError of IOException
     | IncompleteStream
     | StreamIsTooLong
     | DecryptionError of PartDecryptionError
-let decryptStream (ChunkLength chunkLength) read write = updateResult {
-    let read = read >> Result.mapError ReadError >> liftResult
-    let write = write >> Result.mapError WriteError >> liftResult
+let decryptStream (ChunkLength chunkLength) input output = updateResult {
+    let read = readFromStream input >> Result.mapError ReadError >> liftResult
+    let write = writeToStream output >> Result.mapError WriteError >> liftResult
 
     let cipherTextLength = getCipherTextLength chunkLength
     let cipherBuffer = Array.zeroCreate cipherTextLength

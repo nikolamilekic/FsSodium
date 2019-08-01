@@ -2,6 +2,7 @@
 * Refactored validation logic
 * Hashing
 * getLibsodiumVersion
+* Changed stream encryption functions to take actual streams
 
 ### 0.2 - 2019/07/30
 * Switched to using Milekic.YoLo library
@@ -9,7 +10,7 @@
 * Added Random
 * Added PasswordHashing
 * Added Secret
-* Added StreamEncrypted
+* Added StreamEncryption
 * Added 'public key from secret key' computation for both public key authentication and encryption
 * Updated FSharp.Core references as per guidelines
 
