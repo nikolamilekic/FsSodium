@@ -1,4 +1,4 @@
-### 0.3 - Unreleased
+### 0.3-dev - Unreleased
 * Refactored validation logic
 * Hashing
 * getLibsodiumVersion
