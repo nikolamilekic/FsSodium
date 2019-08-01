@@ -279,3 +279,6 @@ extern int crypto_generichash_final(
     byte[] state,
     byte[] output,
     uint64 outputLength);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern IntPtr sodium_version_string();
