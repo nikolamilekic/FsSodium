@@ -23,12 +23,12 @@ type Key private (key) =
     static member Length = keyLength
     static member Validate x =
         validateArrayLength keyLength (fun x -> new Key(x)) x
-type Nonce = private Nonce of byte[]
-    with
-        member this.Value = let (Nonce x) = this in x
-        static member Generate() = Random.bytes nonceLength |> Nonce
-        static member Validate x = validateArrayLength nonceLength Nonce x
-        static member Length = nonceLength
+type Nonce =
+    private | Nonce of byte[]
+    member this.Value = let (Nonce x) = this in x
+    static member Generate() = Random.bytes nonceLength |> Nonce
+    static member Validate x = validateArrayLength nonceLength Nonce x
+    static member Length = nonceLength
 let getCipherTextLength plainTextLength = plainTextLength + macLength
 let getPlainTextLength cipherTextLength = cipherTextLength - macLength
 

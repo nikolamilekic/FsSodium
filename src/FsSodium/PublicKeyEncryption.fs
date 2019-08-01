@@ -21,24 +21,22 @@ type SecretKey private (secretKey) =
     static member Length = secretKeyLength
     static member Validate x =
         validateArrayLength secretKeyLength (fun x -> new SecretKey(x)) x
-and PublicKey = private PublicKey of byte[]
-    with
-        member this.Bytes = let (PublicKey x) = this in x
-        static member Length = publicKeyLength
-        static member Validate x =
-            validateArrayLength publicKeyLength PublicKey x
-        static member Compute (secretKey : SecretKey) =
-            let publicKey = Array.zeroCreate publicKeyLength
-            let result =
-                Interop.crypto_scalarmult_base(publicKey, secretKey.Secret)
-            if result = 0 then Ok <| PublicKey publicKey
-            else Error <| SodiumError result
-type Nonce = private Nonce of byte[]
-    with
-        member this.Value = let (Nonce x) = this in x
-        static member Generate() = Random.bytes nonceLength |> Nonce
-        static member Validate x = validateArrayLength nonceLength Nonce x
-        static member Length = nonceLength
+and PublicKey =
+    private | PublicKey of byte[]
+    member this.Bytes = let (PublicKey x) = this in x
+    static member Length = publicKeyLength
+    static member Validate x = validateArrayLength publicKeyLength PublicKey x
+    static member Compute (secretKey : SecretKey) =
+        let publicKey = Array.zeroCreate publicKeyLength
+        let result = Interop.crypto_scalarmult_base(publicKey, secretKey.Secret)
+        if result = 0 then Ok <| PublicKey publicKey
+        else Error <| SodiumError result
+type Nonce =
+    private | Nonce of byte[]
+    member this.Value = let (Nonce x) = this in x
+    static member Generate() = Random.bytes nonceLength |> Nonce
+    static member Validate x = validateArrayLength nonceLength Nonce x
+    static member Length = nonceLength
 
 let getCipherTextLength plainTextLength = plainTextLength + macLength
 let getPlainTextLength cipherTextLength = cipherTextLength - macLength

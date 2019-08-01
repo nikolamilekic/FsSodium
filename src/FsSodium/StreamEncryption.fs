@@ -37,11 +37,11 @@ type Key private (key) =
         validateArrayLength keyLength (fun x -> new Key(x)) x
 module Header =
     let length = Interop.crypto_secretstream_xchacha20poly1305_headerbytes()
-type Header = private Header of byte[]
-    with
-        static member Length = Header.length
-        static member Validate x = validateArrayLength Header.length Header x
-        member this.Value = let (Header x) = this in x
+type Header =
+    private | Header of byte[]
+    static member Length = Header.length
+    static member Validate x = validateArrayLength Header.length Header x
+    member this.Value = let (Header x) = this in x
 type State internal (state) =
     static member MakeDecryptionState(key : Key, Header header) =
         let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
@@ -170,11 +170,11 @@ let decryptPart cipherText = UpdateResult.delay <| fun () ->
     decryptPartTo cipherText cipherTextLength plainText
     |> flip UpdateResult.map <| fun messageType -> plainText, messageType
 
-type ChunkLength = private ChunkLength of int
-    with
-        static member Validate x =
-            validateRange 1 (Int32.MaxValue - macLength) ChunkLength x
-        member this.Value = let (ChunkLength x) = this in x
+type ChunkLength =
+    private | ChunkLength of int
+    static member Validate x =
+        validateRange 1 (Int32.MaxValue - macLength) ChunkLength x
+    member this.Value = let (ChunkLength x) = this in x
 
 let getCipherTextStreamLength (ChunkLength chunkLength) plainTextStreamLength =
     if plainTextStreamLength <= 0 then 0 else
