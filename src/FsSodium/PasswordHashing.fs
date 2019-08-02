@@ -10,7 +10,7 @@ type Salt =
     static member Validate x = validateArrayLength Salt.length Salt x
     member this.Value = let (Salt x) = this in x
 
-module internal NumberOfOperations =
+module NumberOfOperations =
     let maximum = Interop.crypto_pwhash_opslimit_max() |> capToInt
     let minimum = Interop.crypto_pwhash_opslimit_min() |> capToInt
 type NumberOfOperations =
@@ -34,7 +34,7 @@ type Algorithm =
     member this.Value =  match this with
                          | Default -> Algorithm.defaultAlgorithmInt
 
-module internal MemoryLimit =
+module MemoryLimit =
     let maximum = Interop.crypto_pwhash_memlimit_max() |> capToInt
     let minimum = Interop.crypto_pwhash_memlimit_min() |> capToInt
 type MemoryLimit =
