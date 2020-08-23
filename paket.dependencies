@@ -1,5 +1,4 @@
 source https://www.nuget.org/api/v2
-source https://ci.appveyor.com/nuget/milekic-yolo
 
 storage: none
 
@@ -9,7 +8,7 @@ nuget Expecto.BenchmarkDotNet
 nuget Expecto.FsCheck
 nuget Unquote
 nuget libsodium
-nuget Milekic.YoLo = 2.0.0-dev.49
+nuget Milekic.YoLo prerelease
 
 // [ FAKE GROUP ]
 group Build
