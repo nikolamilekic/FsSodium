@@ -24,8 +24,17 @@
     <!-- Add the Facades directory.  Not sure how else to do this. Necessary at least for .NET 4.5 -->
     <AssemblySearchPaths Condition="'$(BaseFrameworkPathOverrideForMono)' != ''">$(FrameworkPathOverride)/Facades;$(AssemblySearchPaths)</AssemblySearchPaths>
   </PropertyGroup>
+  <PropertyGroup>
+    <Description>FSharp wrapper for the libsodium crypto library</Description>
+    <Authors>Nikola Milekic</Authors>
+    <RepositoryUrl>https://github.com/nikolamilekic/FsSodium/</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/nikolamilekic/FsSodium</PackageProjectUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+  </PropertyGroup>
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Extensions.fs" />
     <Compile Include="Interop.fs" />
     <Compile Include="Common.fs" />
@@ -39,4 +48,5 @@
     <Compile Include="Hashing.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <Import Project="..\..\packages\Milekic.YoLo\SetVersion.targets" />
 </Project>
