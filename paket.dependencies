@@ -1,10 +1,30 @@
 source https://www.nuget.org/api/v2
 source https://ci.appveyor.com/nuget/milekic-yolo
 
+storage: none
+
 nuget FSharp.Core >= 4.3.4 lowest_matching: true, redirects: force
 nuget Expecto
 nuget Expecto.BenchmarkDotNet
 nuget Expecto.FsCheck
 nuget Unquote
 nuget libsodium
-nuget Milekic.YoLo prerelease
+nuget Milekic.YoLo = 2.0.0-dev.49
+
+// [ FAKE GROUP ]
+group Build
+    storage none
+    source https://api.nuget.org/v3/index.json
+
+    framework netstandard2.0
+
+    nuget FSharp.Core
+    nuget Fake.Api.GitHub
+    nuget Fake.Core.ReleaseNotes
+    nuget Fake.Core.Target
+    nuget Fake.DotNet.AssemblyInfoFile
+    nuget Fake.DotNet.Cli
+    nuget Fake.DotNet.Paket
+    nuget Fake.IO.FileSystem
+    nuget Fake.Runtime
+    nuget Fake.Tools.Git

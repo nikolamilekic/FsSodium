@@ -1,14 +1,3 @@
-#r "paket:
-nuget Fake.Api.GitHub
-nuget Fake.Core.ReleaseNotes
-nuget Fake.Core.Target
-nuget Fake.DotNet.AssemblyInfoFile
-nuget Fake.DotNet.Cli
-nuget Fake.DotNet.Paket
-nuget Fake.IO.FileSystem
-nuget Fake.Runtime
-nuget Fake.Tools.Git
-nuget FSharp.Core //"
 #load "./.fake/build.fsx/intellisense.fsx"
 
 open System.IO
@@ -35,7 +24,6 @@ Target.create "Clean" <| fun _ ->
     |> Seq.append [|"bin"; "obj"|]
     |> Shell.deleteDirs
 Target.create "Build" <| fun _ ->
-    Paket.restore id
     DotNet.build id (productName + ".sln")
 
     !! "src/**/*.fsproj"
