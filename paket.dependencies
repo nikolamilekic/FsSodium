@@ -8,6 +8,7 @@ nuget Expecto.FsCheck
 nuget Unquote
 nuget libsodium
 nuget Milekic.YoLo prerelease storage: symlink
+nuget FSharpPlus >= 1.1.3
 
 // [ FAKE GROUP ]
 group Build

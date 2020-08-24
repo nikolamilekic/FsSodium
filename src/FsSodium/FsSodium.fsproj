@@ -26,6 +26,6 @@
     <Compile Include="StreamEncryption.fs" />
     <Compile Include="Hashing.fs" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
   <Import Project="..\..\packages\Milekic.YoLo\SetVersion.targets" />
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
