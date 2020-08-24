@@ -145,7 +145,7 @@ Target.create "AppVeyor" <| fun _ ->
 
         AppVeyor.updateBuild (fun p -> { p with Version = appVeyorVersion })
 
-[ "UploadArtifactsToGitHub"; "UploadPackageToNuget"; "Test" ] ==> "AppVeyor"
+[ "UploadArtifactsToGitHub"; "Test" ] ==> "AppVeyor"
 
 Target.create "Default" ignore
 [ "Build"; "Test" ] ==> "Default"
