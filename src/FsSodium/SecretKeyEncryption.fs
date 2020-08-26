@@ -15,7 +15,7 @@ type Key private (key) =
     inherit Secret(key)
     static member Generate() =
         let key = new Key(Array.zeroCreate keyLength)
-        Interop.crypto_secretbox_keygen(key.Secret)
+        Interop.crypto_secretbox_keygen(key.Get)
         key
     static member FromPassword(parameters, password) =
         PasswordHashing.hashPassword passwordHashingKeyLength parameters password
@@ -49,7 +49,7 @@ let encryptTo (key : Key) (Nonce nonce) plainText plainTextLength cipherText =
             plainText,
             uint64 plainTextLength,
             nonce,
-            key.Secret)
+            key.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
 let encrypt key nonce plainText =
@@ -80,7 +80,7 @@ let decryptTo
             cipherText,
             uint64 cipherTextLength,
             nonce,
-            key.Secret)
+            key.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
 let decrypt key nonce cipherText = result {

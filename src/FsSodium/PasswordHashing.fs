@@ -89,8 +89,8 @@ let hashPassword
         Interop.crypto_pwhash(
             secret,
             (uint64 keyLength),
-            password.Secret,
-            (Array.length password.Secret |> uint64),
+            password.Get,
+            (Array.length password.Get |> uint64),
             salt,
             operations,
             memory,

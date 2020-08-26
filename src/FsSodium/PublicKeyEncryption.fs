@@ -28,7 +28,7 @@ and PublicKey =
     static member Validate x = validateArrayLength publicKeyLength PublicKey x
     static member Compute (secretKey : SecretKey) =
         let publicKey = Array.zeroCreate publicKeyLength
-        let result = Interop.crypto_scalarmult_base(publicKey, secretKey.Secret)
+        let result = Interop.crypto_scalarmult_base(publicKey, secretKey.Get)
         if result = 0 then Ok <| PublicKey publicKey
         else Error <| SodiumError result
 type Nonce =
@@ -66,7 +66,7 @@ let encryptTo
             uint64 plainTextLength,
             nonce,
             recipientKey,
-            senderKey.Secret)
+            senderKey.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
 let encrypt sender recipient nonce plainText =
@@ -100,7 +100,7 @@ let decryptTo
             uint64 cipherTextLength,
             nonce,
             senderKey,
-            recipientKey.Secret)
+            recipientKey.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
 let decrypt recipientKey senderKey nonce cipherText = result {

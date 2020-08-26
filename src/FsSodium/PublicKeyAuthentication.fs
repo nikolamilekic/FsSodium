@@ -26,7 +26,7 @@ and PublicKey =
     static member Compute (secretKey : SecretKey) =
         let publicKey = Array.zeroCreate publicKeyLength
         let result =
-            Interop.crypto_sign_ed25519_sk_to_pk(publicKey, secretKey.Secret)
+            Interop.crypto_sign_ed25519_sk_to_pk(publicKey, secretKey.Get)
         if result = 0 then Ok <| PublicKey publicKey
         else Error <| SodiumError result
     member this.Value = let (PublicKey x) = this in x
@@ -46,7 +46,7 @@ let sign (secretKey : SecretKey) message =
             IntPtr.Zero,
             message,
             uint64 messageLength,
-            secretKey.Secret)
+            secretKey.Get)
     if result = 0 then Ok <| Mac mac
     else Error <| SodiumError result
 

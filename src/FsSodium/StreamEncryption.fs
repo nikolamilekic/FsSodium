@@ -26,7 +26,7 @@ type Key private (key) =
     inherit Secret(key)
     static member Generate() =
         let key = new Key(Array.zeroCreate keyLength)
-        Interop.crypto_secretstream_xchacha20poly1305_keygen(key.Secret)
+        Interop.crypto_secretstream_xchacha20poly1305_keygen(key.Get)
         key
     static member Import x =
         if Array.length x <> keyLength then Error () else Ok <| new Key(x)
@@ -54,7 +54,7 @@ type State internal (state : Interop.crypto_secretstream_xchacha20poly1305_state
             Interop.crypto_secretstream_xchacha20poly1305_init_push(
                 &s,
                 header,
-                key.Secret)
+                key.Get)
         if result = 0
         then Ok (Header header, new State(s))
         else Error <| SodiumError result
@@ -64,7 +64,7 @@ type State internal (state : Interop.crypto_secretstream_xchacha20poly1305_state
             Interop.crypto_secretstream_xchacha20poly1305_init_pull(
                 &s,
                 header,
-                key.Secret)
+                key.Get)
         if result = 0
         then Ok <| new State(s)
         else Error <| SodiumError result

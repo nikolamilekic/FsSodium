@@ -5,7 +5,7 @@ open System.Runtime.Serialization
 open Milekic.YoLo
 
 type Secret(secret) =
-    static let secretName = nameOf <@ instanceOf<Secret>.Secret @>
+    static let secretName = nameOf <@ instanceOf<Secret>.Get @>
     let secretLength = Array.length secret |> uint32
     do Interop.sodium_mlock(secret, secretLength) |> ignore
     new(info : SerializationInfo, _ : StreamingContext) =
@@ -14,7 +14,7 @@ type Secret(secret) =
     abstract member Dispose : unit -> unit
     default __.Dispose() =
         Interop.sodium_munlock(secret, secretLength) |> ignore
-    member __.Secret = secret
+    member __.Get = secret
     interface IDisposable with
         member this.Dispose() = this.Dispose(); GC.SuppressFinalize this
     override this.Finalize() = this.Dispose()
