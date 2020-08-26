@@ -19,7 +19,6 @@
     </AssemblyAttribute>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Extensions.fs" />
     <Compile Include="Interop.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Random.fs" />

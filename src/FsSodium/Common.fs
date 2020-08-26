@@ -22,13 +22,6 @@ module Sodium =
     let getLibsodiumVersion() =
         let intPtr = Interop.sodium_version_string()
         Marshal.PtrToStringAnsi(intPtr)
-
-[<AutoOpen>]
-module Helpers =
-    [<Obsolete>]
-    let inline capToInt x =
-        [ x; Int32.MaxValue |> NumericLiteralG.FromInt32 ] |> List.min |> int
-
 module Buffers =
     type Buffers internal (cipherText : byte[], plainText : byte[]) =
         let plainTextLength = Array.length plainText
