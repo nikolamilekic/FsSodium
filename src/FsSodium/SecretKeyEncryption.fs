@@ -1,92 +1,70 @@
-module FsSodium.SecretKeyEncryption
+namespace FsSodium.SecretKeyEncryption
+
+open FSharpPlus
 
 open FsSodium
-open Milekic.YoLo
-open Milekic.YoLo.Validation
-open Milekic.YoLo.Result.Operators
+open Buffers
 
-let private keyLength = Interop.crypto_secretbox_keybytes() |> capToInt
-let private passwordHashingKeyLength =
-    PasswordHashing.KeyLength.Validate keyLength
-    |> Result.failOnError "Key length is not supported."
-let private nonceLength = Interop.crypto_secretbox_noncebytes() |> capToInt
-let private macLength = Interop.crypto_secretbox_macbytes() |> capToInt
+module internal AlgorithmInfo =
+    let keyLength = Interop.crypto_secretbox_keybytes() |> int
+    let nonceLength = Interop.crypto_secretbox_noncebytes() |> int
+    let macLength = Interop.crypto_secretbox_macbytes() |> int
+
+open AlgorithmInfo
+
 type Key private (key) =
     inherit Secret(key)
     static member Generate() =
         let key = new Key(Array.zeroCreate keyLength)
         Interop.crypto_secretbox_keygen(key.Get)
         key
-    static member FromPassword(parameters, password) =
-        PasswordHashing.hashPassword passwordHashingKeyLength parameters password
-        |> Result.map (fun x -> new Key(x))
-    static member Length = keyLength
-    static member Validate x =
-        validateArrayLength keyLength (fun x -> new Key(x)) x
-type Nonce =
-    private | Nonce of byte[]
-    member this.Value = let (Nonce x) = this in x
+    static member Import x =
+        if Array.length x <> keyLength then Error () else Ok <| new Key(x)
+type Nonce = private | Nonce of byte[] with
+    member this.Get = let (Nonce x) = this in x
     static member Generate() = Random.bytes nonceLength |> Nonce
-    static member Validate x = validateArrayLength nonceLength Nonce x
-    static member Length = nonceLength
-let getCipherTextLength plainTextLength = plainTextLength + macLength
-let getPlainTextLength cipherTextLength = cipherTextLength - macLength
+    static member Import x =
+        if Array.length x <> nonceLength then Error () else Ok <| Nonce x
 
-type EncryptionError =
-    | CipherTextBufferIsNotBigEnough
-    | PlainTextBufferIsNotBigEnough
-    | SodiumError of int
-let encryptTo (key : Key) (Nonce nonce) plainText plainTextLength cipherText =
-    if Array.length cipherText < getCipherTextLength plainTextLength
-    then Error CipherTextBufferIsNotBigEnough else
+[<RequireQualifiedAccess>]
+module SecretKeyEncryption =
+    let buffersFactory = BuffersFactory(macLength)
+    let encryptTo (key : Key) (buffers : Buffers) (Nonce nonce) plainTextLength =
+        let plainText = buffers.PlainText
+        if Array.length plainText < plainTextLength then
+            invalidArg "plainTextLength" "Provided plain text buffer is too small"
 
-    if Array.length plainText < plainTextLength
-    then Error PlainTextBufferIsNotBigEnough else
+        let result =
+            Interop.crypto_secretbox_easy(
+                buffers.CipherText,
+                plainText,
+                uint64 plainTextLength,
+                nonce,
+                key.Get)
 
-    let result =
-        Interop.crypto_secretbox_easy(
-            cipherText,
-            plainText,
-            uint64 plainTextLength,
-            nonce,
-            key.Get)
+        if result = 0 then Ok () else Error <| SodiumError result
+    let encrypt key (nonce, plainText) =
+        let buffers = buffersFactory.FromPlainText plainText
+        let plainTextLength = Array.length plainText
+        encryptTo key buffers nonce plainTextLength
+        |>> konst buffers.CipherText
 
-    if result = 0 then Ok () else Error <| SodiumError result
-let encrypt key nonce plainText =
-    let plainTextLength = Array.length plainText
-    let cipherText = getCipherTextLength plainTextLength |> Array.zeroCreate
-    encryptTo key nonce plainText plainTextLength cipherText >>-. cipherText
+    let decryptTo (key : Key) (buffers : Buffers) (Nonce nonce) cipherTextLength =
+        let cipherText = buffers.CipherText
+        if Array.length cipherText < cipherTextLength then
+            invalidArg "cipherTextLength" "Provided cipher text buffer too small"
 
-type DecryptionError =
-    | CipherTextBufferIsNotBigEnough
-    | PlainTextBufferIsNotBigEnough
-    | SodiumError of int
-let decryptTo
-    (key : Key)
-    (Nonce nonce)
-    cipherText
-    cipherTextLength
-    plainText  =
+        let result =
+            Interop.crypto_secretbox_open_easy(
+                buffers.PlainText,
+                cipherText,
+                uint64 cipherTextLength,
+                nonce,
+                key.Get)
 
-    if Array.length plainText < getPlainTextLength cipherTextLength
-    then Error PlainTextBufferIsNotBigEnough else
-
-    if Array.length cipherText < cipherTextLength
-    then Error CipherTextBufferIsNotBigEnough else
-
-    let result =
-        Interop.crypto_secretbox_open_easy(
-            plainText,
-            cipherText,
-            uint64 cipherTextLength,
-            nonce,
-            key.Get)
-
-    if result = 0 then Ok () else Error <| SodiumError result
-let decrypt key nonce cipherText = result {
-    let cipherTextLength = Array.length cipherText
-    let plainTextLength = getPlainTextLength cipherTextLength
-    let plainText = Array.zeroCreate plainTextLength
-    do! decryptTo key nonce cipherText cipherTextLength plainText
-    return plainText
-}
+        if result = 0 then Ok () else Error <| SodiumError result
+    let decrypt key (nonce, cipherText) =
+        let buffers = buffersFactory.FromCipherText cipherText
+        let cipherTextLength = Array.length cipherText
+        decryptTo key buffers nonce cipherTextLength
+        |>> konst buffers.PlainText
