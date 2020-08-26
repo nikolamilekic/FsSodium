@@ -3,8 +3,9 @@ module FsSodium.Tests.PublicKeyEncryptionTests
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
+
 open FsSodium
-open PublicKeyEncryption
+open FsSodium.PublicKeyEncryption
 
 do initializeSodium()
 
@@ -14,11 +15,6 @@ let generateKey =
 let alice = generateKey()
 let bob = generateKey()
 let eve = generateKey()
-let encryptWithFixture =
-    uncurry <| encrypt (fst alice) (snd bob)
-    >> Result.failOnError "Encryption failed"
-    |> curry
-let decryptWithFixture = decrypt (fst bob) (snd alice)
 
 [<Tests>]
 let publicKeyAuthenticationTests =
@@ -26,34 +22,49 @@ let publicKeyAuthenticationTests =
         yield testCase "Alice to herself roundtrip works" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
-            encrypt (fst alice) (snd alice) nonce plainText
+            PublicKeyEncryption.encrypt (fst alice) (snd alice) (nonce, plainText)
             |> Result.failOnError "Encryption failed"
-            |> decrypt (fst alice) (snd alice) nonce
+            |> fun c ->
+                PublicKeyEncryption.decrypt (fst alice) (snd alice) (nonce, c)
             =! Ok plainText
         yield testCase "Alice and bob roundtrip works" <| fun () ->
             let nonce = Nonce.Generate()
             let plainText = [|1uy; 2uy; 3uy|]
-            encryptWithFixture nonce plainText
-            |> decryptWithFixture nonce
+            PublicKeyEncryption.encrypt (fst alice) (snd bob) (nonce, plainText)
+            |> Result.failOnError "Encryption failed"
+            |> fun c ->
+                PublicKeyEncryption.decrypt (fst bob) (snd alice) (nonce, c)
             =! Ok plainText
         yield testCase "Decrypt fails with modified cipher text" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
-            let cipherText = encryptWithFixture nonce plainText
-            cipherText.[0] <- if cipherText.[0] = 0uy then 1uy else 0uy
-            decryptWithFixture nonce cipherText =! (Error <| SodiumError -1)
+            PublicKeyEncryption.encrypt (fst alice) (snd bob) (nonce, plainText)
+            |> Result.failOnError "Encryption failed"
+            |> fun c ->
+                c.[0] <- if c.[0] = 0uy then 1uy else 0uy
+                PublicKeyEncryption.decrypt (fst bob) (snd alice) (nonce, c)
+            =! (Error <| SodiumError -1)
         yield testCase "Decrypt fails with modified nonce" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce1 = Nonce.Generate()
             let nonce2 = Nonce.Generate()
-            let cipherText = encryptWithFixture nonce1 plainText
-            decryptWithFixture nonce2 cipherText =! (Error <| SodiumError -1)
+            let plainText = [|1uy; 2uy; 3uy|]
+            PublicKeyEncryption.encrypt (fst alice) (snd bob) (nonce1, plainText)
+            |> Result.failOnError "Encryption failed"
+            |> fun c ->
+                PublicKeyEncryption.decrypt (fst bob) (snd alice) (nonce2, c)
+            =! (Error <| SodiumError -1)
         yield testCase "Decrypt fails with wrong key" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
-            encryptWithFixture nonce plainText
-            |> decrypt (fst eve) (snd alice) nonce
+            let plainText = [|1uy; 2uy; 3uy|]
+            PublicKeyEncryption.encrypt (fst alice) (snd bob) (nonce, plainText)
+            |> Result.failOnError "Encryption failed"
+            |> fun c ->
+                PublicKeyEncryption.decrypt (fst eve) (snd alice) (nonce, c)
             =! (Error <| SodiumError -1)
         yield testCase "Public key computation from secret key works" <| fun () ->
-            PublicKey.Compute (fst alice) =! Ok (snd alice)
+            PublicKey.FromSecretKey (fst alice) =! Ok (snd alice)
+            PublicKey.FromSecretKey (fst bob) =! Ok (snd bob)
+            PublicKey.FromSecretKey (fst eve) =! Ok (snd eve)
     ]

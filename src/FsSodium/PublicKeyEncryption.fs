@@ -1,13 +1,19 @@
-module FsSodium.PublicKeyEncryption
+namespace FsSodium.PublicKeyEncryption
 
 open System
 open Milekic.YoLo
-open Milekic.YoLo.Result.Operators
+open FSharpPlus
 
-let private publicKeyLength = Interop.crypto_box_publickeybytes() |> capToInt
-let private secretKeyLength = Interop.crypto_box_secretkeybytes() |> capToInt
-let private nonceLength = Interop.crypto_box_noncebytes() |> capToInt
-let private macLength = Interop.crypto_box_macbytes() |> capToInt
+open FsSodium
+open FsSodium.Buffers
+
+module internal AlgorithmInfo =
+    let publicKeyLength = Interop.crypto_box_publickeybytes() |> int
+    let secretKeyLength = Interop.crypto_box_secretkeybytes() |> int
+    let nonceLength = Interop.crypto_box_noncebytes() |> int
+    let macLength = Interop.crypto_box_macbytes() |> int
+
+open AlgorithmInfo
 
 type SecretKey private (secretKey) =
     inherit Secret(secretKey)
@@ -18,102 +24,79 @@ type SecretKey private (secretKey) =
         let result = Interop.crypto_box_keypair(publicKey, secretKey)
         if result = 0 then Ok <| (secret, PublicKey publicKey)
         else (secret :> IDisposable).Dispose(); Error <| SodiumError result
-    static member Length = secretKeyLength
-    static member Validate x =
-        validateArrayLength secretKeyLength (fun x -> new SecretKey(x)) x
-and PublicKey =
-    private | PublicKey of byte[]
-    member this.Bytes = let (PublicKey x) = this in x
-    static member Length = publicKeyLength
-    static member Validate x = validateArrayLength publicKeyLength PublicKey x
-    static member Compute (secretKey : SecretKey) =
+    static member Import x =
+        if Array.length x <> secretKeyLength
+        then Error ()
+        else Ok <| new SecretKey(x)
+and PublicKey = private | PublicKey of byte[] with
+    member this.Get = let (PublicKey x) = this in x
+    static member Import x =
+        if Array.length x <> publicKeyLength then Error () else Ok <| PublicKey x
+    static member FromSecretKey (secretKey : SecretKey) =
         let publicKey = Array.zeroCreate publicKeyLength
         let result = Interop.crypto_scalarmult_base(publicKey, secretKey.Get)
         if result = 0 then Ok <| PublicKey publicKey
         else Error <| SodiumError result
-type Nonce =
-    private | Nonce of byte[]
-    member this.Value = let (Nonce x) = this in x
+type Nonce = private | Nonce of byte[] with
+    member this.Get = let (Nonce x) = this in x
     static member Generate() = Random.bytes nonceLength |> Nonce
-    static member Validate x = validateArrayLength nonceLength Nonce x
-    static member Length = nonceLength
+    static member Import x =
+        if Array.length x <> nonceLength then Error () else Ok <| Nonce x
 
-let getCipherTextLength plainTextLength = plainTextLength + macLength
-let getPlainTextLength cipherTextLength = cipherTextLength - macLength
+[<RequireQualifiedAccess>]
+module PublicKeyEncryption =
+    let buffersFactory = BuffersFactory(macLength)
 
-type EncryptionError =
-    | CipherTextBufferIsNotBigEnough
-    | PlainTextBufferIsNotBigEnough
-    | SodiumError of int
-let encryptTo
-    (senderKey : SecretKey)
-    (PublicKey recipientKey)
-    (Nonce nonce)
-    plainText
-    plainTextLength
-    cipherText =
+    let encryptTo
+        (senderKey : SecretKey)
+        (PublicKey recipientKey)
+        (buffers : Buffers)
+        (Nonce nonce)
+        plainTextLength =
 
-    if Array.length cipherText < getCipherTextLength plainTextLength
-    then Error CipherTextBufferIsNotBigEnough else
+        let plainText = buffers.PlainText
+        if Array.length plainText < plainTextLength then
+            invalidArg "plainTextLength" "Provided plain text buffer is too small"
 
-    if Array.length plainText < plainTextLength
-    then Error PlainTextBufferIsNotBigEnough else
+        let result =
+            Interop.crypto_box_easy(
+                buffers.CipherText,
+                plainText,
+                uint64 plainTextLength,
+                nonce,
+                recipientKey,
+                senderKey.Get)
 
-    let result =
-        Interop.crypto_box_easy(
-            cipherText,
-            plainText,
-            uint64 plainTextLength,
-            nonce,
-            recipientKey,
-            senderKey.Get)
+        if result = 0 then Ok () else Error <| SodiumError result
+    let encrypt senderKey recipientKey (nonce, plainText) =
+        let buffers = buffersFactory.FromPlainText plainText
+        let plainTextLength = Array.length plainText
+        encryptTo senderKey recipientKey buffers nonce plainTextLength
+        |>> konst buffers.CipherText
 
-    if result = 0 then Ok () else Error <| SodiumError result
-let encrypt sender recipient nonce plainText =
-    let plainTextLength = Array.length plainText
-    let cipherText = getCipherTextLength plainTextLength |> Array.zeroCreate
-    encryptTo sender recipient nonce plainText plainTextLength cipherText
-    >>-. cipherText
+    let decryptTo
+        (recipientKey : SecretKey)
+        (PublicKey senderKey)
+        (buffers : Buffers)
+        (Nonce nonce)
+        cipherTextLength =
 
-type DecryptionError =
-    | CipherTextBufferIsNotBigEnough
-    | PlainTextBufferIsNotBigEnough
-    | SodiumError of int
-let decryptTo
-    (recipientKey : SecretKey)
-    (PublicKey senderKey)
-    (Nonce nonce)
-    cipherText
-    cipherTextLength
-    plainText =
+        let cipherText = buffers.CipherText
+        if Array.length cipherText < cipherTextLength then
+            invalidArg "cipherTextLength" "Provided cipher text buffer too small"
 
-    if Array.length plainText < getPlainTextLength cipherTextLength
-    then Error PlainTextBufferIsNotBigEnough else
+        let result =
+            Interop.crypto_box_open_easy(
+                buffers.PlainText,
+                cipherText,
+                uint64 cipherTextLength,
+                nonce,
+                senderKey,
+                recipientKey.Get)
 
-    if Array.length cipherText < cipherTextLength
-    then Error CipherTextBufferIsNotBigEnough else
-
-    let result =
-        Interop.crypto_box_open_easy(
-            plainText,
-            cipherText,
-            uint64 cipherTextLength,
-            nonce,
-            senderKey,
-            recipientKey.Get)
-
-    if result = 0 then Ok () else Error <| SodiumError result
-let decrypt recipientKey senderKey nonce cipherText = result {
-    let cipherTextLength = Array.length cipherText
-    let plainTextLength = getPlainTextLength cipherTextLength
-    let plainText = Array.zeroCreate plainTextLength
-    do!
-        decryptTo
-            recipientKey
-            senderKey
-            nonce
-            cipherText
-            cipherTextLength
-            plainText
-    return plainText
-}
+        if result = 0 then Ok () else Error <| SodiumError result
+    let decrypt recipientKey senderKey (nonce, cipherText) =
+        let buffers = buffersFactory.FromCipherText cipherText
+        let cipherTextLength = Array.length cipherText
+        decryptTo recipientKey senderKey buffers nonce cipherTextLength
+        |>> konst buffers.PlainText
