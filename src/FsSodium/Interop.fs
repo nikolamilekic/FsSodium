@@ -23,13 +23,13 @@ let Name = "libsodium"
 extern int sodium_init()
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_sign_publickeybytes();
+extern uint32 crypto_sign_publickeybytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_sign_secretkeybytes();
+extern uint32 crypto_sign_secretkeybytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_sign_bytes();
+extern uint32 crypto_sign_bytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_sign_detached(
@@ -53,16 +53,16 @@ extern int crypto_sign_keypair(byte[] publicKey, byte[] secretKey);
 extern int crypto_sign_ed25519_sk_to_pk(byte[] publicKey, byte[] secretKey);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_box_publickeybytes();
+extern uint32 crypto_box_publickeybytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_box_secretkeybytes();
+extern uint32 crypto_box_secretkeybytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_box_macbytes();
+extern uint32 crypto_box_macbytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_box_noncebytes();
+extern uint32 crypto_box_noncebytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_box_easy(
@@ -89,28 +89,26 @@ extern int crypto_box_keypair(byte[] publicKey, byte[] secretKey);
 extern int crypto_scalarmult_base(byte[] publicKey, byte[] secretKey);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern void randombytes_buf(byte[] buffer, uint64 bufferLength);
+extern void randombytes_buf(byte[] buffer, uint32 bufferLength);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int sodium_mlock(
     byte[] array,
-    int length);
+    uint32 length);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int sodium_munlock(
     byte[] array,
-    int length);
+    uint32 length);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern void sodium_memzero(
-    byte[] array,
-    int length);
+    extern void sodium_memzero(byte[] array, uint32 length);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_pwhash_alg_default();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_pwhash_saltbytes();
+extern uint32 crypto_pwhash_saltbytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 
@@ -120,22 +118,22 @@ extern uint64 crypto_pwhash_opslimit_min();
 extern uint64 crypto_pwhash_opslimit_max();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern uint64 crypto_pwhash_memlimit_max();
+extern uint32 crypto_pwhash_memlimit_max();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern uint64 crypto_pwhash_memlimit_min();
+extern uint32 crypto_pwhash_memlimit_min();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern uint64 crypto_pwhash_bytes_min();
+extern uint32 crypto_pwhash_bytes_min();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern uint64 crypto_pwhash_bytes_max();
+extern uint32 crypto_pwhash_bytes_max();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern uint64 crypto_pwhash_passwd_min();
+extern uint32 crypto_pwhash_passwd_min();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern uint64 crypto_pwhash_passwd_max();
+extern uint32 crypto_pwhash_passwd_max();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_pwhash(
@@ -145,17 +143,17 @@ extern int crypto_pwhash(
     uint64 passwordLength,
     byte[] salt,
     uint64 maxNumberOfOperations,
-    uint64 maxAmountOfMemoryToUse,
+    uint32 maxAmountOfMemoryToUse,
     int algorithm);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretbox_keybytes();
+extern uint32 crypto_secretbox_keybytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretbox_macbytes();
+extern uint32 crypto_secretbox_macbytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretbox_noncebytes();
+extern uint32 crypto_secretbox_noncebytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_secretbox_easy(
@@ -177,25 +175,25 @@ extern int crypto_secretbox_open_easy(
 extern void crypto_secretbox_keygen(byte[] key);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretstream_xchacha20poly1305_keybytes();
+extern uint32 crypto_secretstream_xchacha20poly1305_keybytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretstream_xchacha20poly1305_headerbytes();
+extern uint32 crypto_secretstream_xchacha20poly1305_headerbytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretstream_xchacha20poly1305_abytes();
+extern uint32 crypto_secretstream_xchacha20poly1305_abytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretstream_xchacha20poly1305_tag_message();
+extern byte crypto_secretstream_xchacha20poly1305_tag_message();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretstream_xchacha20poly1305_tag_final();
+extern byte crypto_secretstream_xchacha20poly1305_tag_final();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretstream_xchacha20poly1305_tag_rekey();
+extern byte crypto_secretstream_xchacha20poly1305_tag_rekey();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_secretstream_xchacha20poly1305_tag_push();
+extern byte crypto_secretstream_xchacha20poly1305_tag_push();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_secretstream_xchacha20poly1305_push(
@@ -237,36 +235,36 @@ extern void crypto_secretstream_xchacha20poly1305_keygen(byte[] key);
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_generichash(
     byte[] hash,
-    uint64 hashLength,
+    uint32 hashLength,
     byte[] input,
     uint64 inputLength,
     byte[] key,
-    uint64 keyLength);
+    uint32 keyLength);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_generichash_bytes_min();
+extern uint32 crypto_generichash_keybytes_min();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_generichash_bytes_max();
+extern uint32 crypto_generichash_bytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_generichash_bytes();
+extern uint32 crypto_generichash_bytes_min();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_generichash_keybytes_min();
+extern uint32 crypto_generichash_bytes_max();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_generichash_keybytes_max();
+extern uint32 crypto_generichash_keybytes_max();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
-extern int crypto_generichash_keybytes();
+extern uint32 crypto_generichash_keybytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_generichash_init(
     byte[] state,
     byte[] key,
-    uint64 keyLength,
-    uint64 hashLength);
+    uint32 keyLength,
+    uint32 hashLength);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_generichash_update(
@@ -278,7 +276,7 @@ extern int crypto_generichash_update(
 extern int crypto_generichash_final(
     byte[] state,
     byte[] output,
-    uint64 outputLength);
+    uint32 outputLength);
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern IntPtr sodium_version_string();

@@ -1,260 +1,285 @@
-module FsSodium.StreamEncryption
+namespace FsSodium.StreamEncryption
 
 open System
 open System.IO
-open Milekic.YoLo
-open Milekic.YoLo.Update
-open Milekic.YoLo.UpdateResult
-open Milekic.YoLo.UpdateResult.Operators
-open Extensions
+open FSharpPlus
+open FSharpPlus.Data
 
-let internal macLength =
-    Interop.crypto_secretstream_xchacha20poly1305_abytes()
-let private keyLength = Interop.crypto_secretstream_xchacha20poly1305_keybytes()
-let private messageTag =
-    byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_message()
-let private finalTag =
-    byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_final()
-let private rekeyTag =
-    byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_rekey()
-let private pushTag =
-    byte <| Interop.crypto_secretstream_xchacha20poly1305_tag_push()
+open FsSodium
+open FsSodium.Buffers
 
-let private passwordHashingKeyLength =
-    PasswordHashing.KeyLength.Validate keyLength
-    |> Result.failOnError "Key length is not supported."
+module internal AlgorithmInfo =
+    let macLength =
+        Interop.crypto_secretstream_xchacha20poly1305_abytes() |> int
+    let keyLength =
+        Interop.crypto_secretstream_xchacha20poly1305_keybytes() |> int
+    let headerLength =
+        Interop.crypto_secretstream_xchacha20poly1305_headerbytes() |> int
+    let messageTag = Interop.crypto_secretstream_xchacha20poly1305_tag_message()
+    let finalTag = Interop.crypto_secretstream_xchacha20poly1305_tag_final()
+    let rekeyTag = Interop.crypto_secretstream_xchacha20poly1305_tag_rekey()
+    let pushTag = Interop.crypto_secretstream_xchacha20poly1305_tag_push()
+
+open AlgorithmInfo
+
 type Key private (key) =
     inherit Secret(key)
     static member Generate() =
         let key = new Key(Array.zeroCreate keyLength)
         Interop.crypto_secretstream_xchacha20poly1305_keygen(key.Secret)
         key
-    static member FromPassword(parameters, password) =
-        PasswordHashing.hashPassword passwordHashingKeyLength parameters password
-        |> Result.map (fun x -> new Key(x))
-    static member Length = keyLength
+    static member Import x =
+        if Array.length x <> keyLength then Error () else Ok <| new Key(x)
+type Header = private | Header of byte[] with
     static member Validate x =
-        validateArrayLength keyLength (fun x -> new Key(x)) x
-module Header =
-    let length = Interop.crypto_secretstream_xchacha20poly1305_headerbytes()
-type Header =
-    private | Header of byte[]
-    static member Length = Header.length
-    static member Validate x = validateArrayLength Header.length Header x
-    member this.Value = let (Header x) = this in x
-type State internal (state) =
-    static member MakeDecryptionState(key : Key, Header header) =
-        let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
-        let result =
-            Interop.crypto_secretstream_xchacha20poly1305_init_pull(
-                &s,
-                header,
-                key.Secret)
-        if result = 0 then Ok <| new State(s) else Error <| SodiumError result
-    static member MakeEncryptionState(key : Key) =
-        let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
-        let header = Array.zeroCreate Header.length
-        let result =
-            Interop.crypto_secretstream_xchacha20poly1305_init_push(
-                &s,
-                header,
-                key.Secret)
-        if result = 0 then Ok (Header header, new State(s))
-        else Error <| SodiumError result
+        if Array.length x <> headerLength then Error () else Ok <| Header x
+    member this.Get = let (Header x) = this in x
+
+type State internal (state : Interop.crypto_secretstream_xchacha20poly1305_state) =
     member internal __.State = state
     member __.Dispose() =
         let clear x =
-            if x <> null then Interop.sodium_memzero(x, Array.length x)
+            if not (isNull x) then
+                Interop.sodium_memzero(x, Array.length x |> uint32)
         clear state.k
         clear state.nonce
         clear state._pad
     override this.Finalize() = this.Dispose()
     interface IDisposable with member this.Dispose() = this.Dispose()
 
-[<NoComparison; NoEquality>]
-type StateUpdate =
-    | DoNothing
-    | SetNew of State
-    static member Apply (s : State, u) = match u with
-                                         | DoNothing -> s
-                                         | SetNew s1 -> s.Dispose(); s1
-    static member Unit = DoNothing
-    static member Combine(a, b) = match (a, b) with | x, DoNothing -> x
-                                                    | _, x -> x
-let setNewState x = (fun _ -> SetNew x, ()) |> Update |> liftUpdate
+    static member CreateEncryptionState(key : Key) =
+        let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
+        let header = Array.zeroCreate headerLength
+        let result =
+            Interop.crypto_secretstream_xchacha20poly1305_init_push(
+                &s,
+                header,
+                key.Secret)
+        if result = 0
+        then Ok (Header header, new State(s))
+        else Error <| SodiumError result
+    static member CreateDecryptionState(key : Key, Header header) =
+        let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
+        let result =
+            Interop.crypto_secretstream_xchacha20poly1305_init_pull(
+                &s,
+                header,
+                key.Secret)
+        if result = 0
+        then Ok <| new State(s)
+        else Error <| SodiumError result
 
 type MessageType = Message | Final | Push | Rekey
-let getCipherTextLength plainTextLength =
-    if plainTextLength <= 0 then 0 else plainTextLength + macLength
-let getPlainTextLength cipherTextLength =
-    if cipherTextLength <= macLength then 0 else cipherTextLength - macLength
-
-type PartEncryptionError =
-    | CipherTextBufferIsNotBigEnough
-    | PlainTextBufferIsNotBigEnough
-    | SodiumError of int
-let encryptPartTo messageType plainText plainTextLength cipherText = updateResult {
-    if Array.length cipherText < getCipherTextLength plainTextLength
-    then return! Error CipherTextBufferIsNotBigEnough |> liftResult else
-
-    if Array.length plainText < plainTextLength
-    then return! Error PlainTextBufferIsNotBigEnough |> liftResult else
-
-    let! (state : State) = getState |> liftUpdate
-    let mutable s = state.State
-    let tag = match messageType with
-              | Message -> messageTag
-              | Final -> finalTag
-              | Push -> pushTag
-              | Rekey -> rekeyTag
-    let result =
-        Interop.crypto_secretstream_xchacha20poly1305_push(
-            &s,
-            cipherText,
-            IntPtr.Zero,
-            plainText,
-            uint64 plainTextLength,
-            null,
-            0UL,
-            byte tag)
-    if result = 0 then return! setNewState <| new State(s)
-    else return! Error <| SodiumError result |> liftResult
-}
-let encryptPart (plainText, messageType) = UpdateResult.delay <| fun () ->
-    let plainTextLength = Array.length plainText
-    let cipherText = getCipherTextLength plainTextLength |> Array.zeroCreate
-    encryptPartTo messageType plainText plainTextLength cipherText
-    |> UpdateResult.map (fun _ -> cipherText)
-
-type PartDecryptionError =
-    | CipherTextBufferIsNotBigEnough
-    | PlainTextBufferIsNotBigEnough
-    | ReceivedAnUnexpectedMessageTag of byte
-    | SodiumError of int
-let decryptPartTo cipherText cipherTextLength plainText = updateResult {
-    if Array.length plainText < getPlainTextLength cipherTextLength
-    then return! Error PlainTextBufferIsNotBigEnough |> liftResult else
-
-    if Array.length cipherText < cipherTextLength
-    then return! Error CipherTextBufferIsNotBigEnough |> liftResult else
-
-    let! (state : State) = getState |> liftUpdate
-    let mutable s = state.State
-    let mutable tag = 0uy
-
-    let result =
-        Interop.crypto_secretstream_xchacha20poly1305_pull(
-            &s,
-            plainText,
-            IntPtr.Zero,
-            &tag,
-            cipherText,
-            uint64 cipherTextLength,
-            null,
-            0UL)
-
-    if result = 0 then
-        do! setNewState <| new State(s)
-        match tag with
-        | x when x = finalTag -> return Final
-        | x when x = messageTag -> return Message
-        | x when x = pushTag -> return Push
-        | x when x = rekeyTag -> return Rekey
-        | _ -> return! Error <| ReceivedAnUnexpectedMessageTag tag |> liftResult
-    else return! Error <| SodiumError result |> liftResult
-}
-let decryptPart cipherText = UpdateResult.delay <| fun () ->
-    let cipherTextLength = Array.length cipherText
-    let plainTextLength = getPlainTextLength cipherTextLength
-    let plainText = Array.zeroCreate plainTextLength
-    decryptPartTo cipherText cipherTextLength plainText
-    |> flip UpdateResult.map <| fun messageType -> plainText, messageType
-
-type ChunkLength =
-    private | ChunkLength of int
+type ChunkLength = private | ChunkLength of int with
     static member Validate x =
-        validateRange 1 (Int32.MaxValue - macLength) ChunkLength x
+        if x < 1 || x > (Int32.MaxValue - macLength)
+        then Error ()
+        else Ok <| ChunkLength x
     member this.Value = let (ChunkLength x) = this in x
-
-let getCipherTextStreamLength (ChunkLength chunkLength) plainTextStreamLength =
-    if plainTextStreamLength <= 0 then 0 else
-    plainTextStreamLength / chunkLength * getCipherTextLength chunkLength +
-    getCipherTextLength (plainTextStreamLength % chunkLength)
-let getPlainTextStreamLength (ChunkLength chunkLength) cipherTextStreamLength =
-    if cipherTextStreamLength <= 0 then 0 else
-    let encryptedChunkLength = getCipherTextLength chunkLength
-    cipherTextStreamLength / encryptedChunkLength * chunkLength +
-    getPlainTextLength (cipherTextStreamLength % encryptedChunkLength)
-
-type private ReaderState = NotDone | Done
-
-let private readFromStream (inputStream : Stream) buffer =
-    try
-        let readBytes = inputStream.Read(buffer, 0, Array.length buffer)
-        let state = if inputStream.Position < inputStream.Length
-                    then NotDone else Done
-        Ok (readBytes, state)
-    with | :? IOException as exn -> Error exn
-
-let private writeToStream (outputStream : Stream) (buffer, count) =
-    try outputStream.Write(buffer, 0, count) |> Ok
-    with | :? IOException as exn -> Error exn
-
 type StreamEncryptionError =
     | ReadError of IOException
     | WriteError of IOException
-    | EncryptionError of PartEncryptionError
-let encryptStream (ChunkLength chunkLength) input output = updateResult {
-    let read = readFromStream input >> Result.mapError ReadError >> liftResult
-    let write = writeToStream output >> Result.mapError WriteError >> liftResult
-
-    let cipherTextLength = getCipherTextLength chunkLength
-    let cipherBuffer = Array.zeroCreate cipherTextLength
-    let plainBuffer = Array.zeroCreate chunkLength
-    use __ = new Secret(plainBuffer)
-
-    let rec inner count = updateResult {
-        let! readBytes, state = read plainBuffer
-        let messageType = match state with NotDone -> Message | Done -> Final
-        let cipherTextLength = getCipherTextLength readBytes
-        do! encryptPartTo messageType plainBuffer readBytes cipherBuffer
-            >>-! EncryptionError
-        do! write (cipherBuffer, cipherTextLength)
-        match messageType with
-        | Final -> return ()
-        | _ -> return! inner (count + readBytes)
-    }
-
-    return! inner 0
-}
-
+    | StateInitializationError of SodiumError
+    | EncryptionError of SodiumError
 type StreamDecryptionError =
     | ReadError of IOException
     | WriteError of IOException
     | IncompleteStream
-    | StreamIsTooLong
-    | DecryptionError of PartDecryptionError
-let decryptStream (ChunkLength chunkLength) input output = updateResult {
-    let read = readFromStream input >> Result.mapError ReadError >> liftResult
-    let write = writeToStream output >> Result.mapError WriteError >> liftResult
+    | StateInitializationError of SodiumError
+    | DecryptionError of SodiumError
 
-    let cipherTextLength = getCipherTextLength chunkLength
-    let cipherBuffer = Array.zeroCreate cipherTextLength
-    let plainBuffer = Array.zeroCreate chunkLength
-    use __ = new Secret(plainBuffer)
+[<RequireQualifiedAccess>]
+module StreamEncryption =
+    let buffersFactory = BuffersFactory(macLength)
 
-    let rec inner () = updateResult {
-        let! readBytes, state = read cipherBuffer
-        let plainTextLength = getPlainTextLength readBytes
-        let! messageType =
-            decryptPartTo cipherBuffer readBytes plainBuffer
-            >>-! DecryptionError
-        do! write(plainBuffer, plainTextLength)
-        match messageType, state with
-        | Final, Done -> return ()
-        | _, Done -> return! Error IncompleteStream |> liftResult
-        | Final, NotDone -> return! Error StreamIsTooLong |> liftResult
-        | _, NotDone -> return! inner()
+    let setNewState newState = monad {
+        let! (oldState : State) = State.get |> StateT.hoist
+        oldState.Dispose()
+        do! (State.put newState) |> StateT.hoist
     }
-    return! inner ()
-}
+    let encryptPartTo
+        (encryptionBuffers : Buffers)
+        messageType
+        plainTextLength = monad {
+
+        let plainText = encryptionBuffers.PlainText
+        if Array.length plainText < plainTextLength then
+            invalidArg "plainTextLength" "Provided plain text buffer is too small"
+
+        let! (state : State) = State.get |> StateT.hoist
+        let mutable s = state.State
+        let tag =
+            match messageType with
+            | Message -> messageTag
+            | Final -> finalTag
+            | Push -> pushTag
+            | Rekey -> rekeyTag
+        let result =
+            Interop.crypto_secretstream_xchacha20poly1305_push(
+                &s,
+                encryptionBuffers.CipherText,
+                IntPtr.Zero,
+                plainText,
+                uint64 plainTextLength,
+                null,
+                0UL,
+                byte tag)
+        if result = 0
+        then
+            do! setNewState (new State(s))
+            return ()
+        else return! SodiumError result |> Error |> StateT.lift
+    }
+    let encryptPart (messageType, plainText) = monad {
+        let buffers = buffersFactory.FromPlainText plainText
+        let plainTextLength = Array.length plainText
+        do! encryptPartTo buffers messageType plainTextLength
+        return buffers.CipherText
+    }
+    let decryptPartTo
+        (decryptionBuffers : Buffers)
+        cipherTextLength = monad {
+
+        let cipherText = decryptionBuffers.CipherText
+        if Array.length cipherText < cipherTextLength then
+            invalidArg "cipherTextLength" "Provided cipher text buffer too small"
+
+        let! (state : State) = State.get |> StateT.hoist
+        let mutable s = state.State
+        let mutable tag = 0uy
+
+        let result =
+            Interop.crypto_secretstream_xchacha20poly1305_pull(
+                &s,
+                decryptionBuffers.PlainText,
+                IntPtr.Zero,
+                &tag,
+                cipherText,
+                uint64 cipherTextLength,
+                null,
+                0UL)
+
+        if result = 0 then
+            do! setNewState (new State(s))
+            match tag with
+            | x when x = finalTag -> return Final
+            | x when x = messageTag -> return Message
+            | x when x = pushTag -> return Push
+            | x when x = rekeyTag -> return Rekey
+            | _ -> return failwith "Received an unexpected message tag from libsodium"
+        else return! (SodiumError result) |> Error |> StateT.lift
+    }
+    let decryptPart cipherText = monad {
+        let buffers = buffersFactory.FromCipherText cipherText
+        GC.SuppressFinalize buffers
+        let cipherTextLength = Array.length cipherText
+        let! messageType = decryptPartTo buffers cipherTextLength
+        return messageType, buffers.PlainText
+    }
+    let getCipherTextStreamLength (ChunkLength chunkLength) plainTextStreamLength =
+        let cipherLength = buffersFactory.GetCipherTextLength
+        if plainTextStreamLength <= 0 then 0 else
+        plainTextStreamLength / chunkLength * cipherLength chunkLength +
+        cipherLength (plainTextStreamLength % chunkLength)
+    let getPlainTextStreamLength (ChunkLength chunkLength) cipherTextStreamLength =
+        if cipherTextStreamLength <= 0 then 0 else
+        let encryptedChunkLength =
+            buffersFactory.GetCipherTextLength chunkLength
+        cipherTextStreamLength / encryptedChunkLength * chunkLength +
+        buffersFactory.GetPlainTextLength
+            (cipherTextStreamLength % encryptedChunkLength)
+
+    type private ReaderState = NotDone | Done
+    let private readFromStream (inputStream : Stream) buffer =
+        try
+            let readBytes = inputStream.Read(buffer, 0, Array.length buffer)
+            let state = if inputStream.Position < inputStream.Length
+                        then NotDone else Done
+            Ok (readBytes, state)
+        with | :? IOException as exn -> Error exn
+    let private writeToStream (outputStream : Stream) (buffer, count) =
+        try outputStream.Write(buffer, 0, count) |> Ok
+        with | :? IOException as exn -> Error exn
+
+    let encryptStream key (ChunkLength chunkLength) input output = monad.strict {
+        let encryptionBuffers = buffersFactory.FromPlainTextLength(chunkLength)
+        use _ = new Secret (encryptionBuffers.PlainText)
+        let read () =
+            readFromStream input encryptionBuffers.PlainText
+            |> first StreamEncryptionError.ReadError
+            |> StateT.lift
+
+        let write cipherTextLength =
+            writeToStream output (encryptionBuffers.CipherText, cipherTextLength)
+            |> first StreamEncryptionError.WriteError
+            |> StateT.lift
+
+        let! header, state =
+            State.CreateEncryptionState key
+            |> first StreamEncryptionError.StateInitializationError
+
+        let encrypt =
+            uncurry (encryptPartTo encryptionBuffers)
+            >> fun state ->
+                StateT.run state
+                >> first StreamEncryptionError.EncryptionError
+                |> StateT
+            |> curry
+
+        let rec inner count = monad {
+            let! readBytes, state = read ()
+            let messageType =
+                match state with
+                | NotDone -> Message
+                | Done -> Final
+            let cipherTextLength = buffersFactory.GetCipherTextLength readBytes
+            do! encrypt messageType readBytes
+            do! write cipherTextLength
+            match messageType with
+            | Final -> return ()
+            | _ -> return! inner (count + readBytes)
+        }
+
+        do! StateT.run (inner 0) state |>> fst
+
+        return header
+    }
+
+    let decryptStream settings (ChunkLength chunkLength) input output = monad.strict {
+        let decryptionBuffers = buffersFactory.FromPlainTextLength(chunkLength)
+        use _ = new Secret (decryptionBuffers.PlainText)
+
+        let read () =
+            readFromStream input decryptionBuffers.CipherText
+            |> first StreamDecryptionError.ReadError
+            |> StateT.lift
+
+        let write plainTextLength =
+            writeToStream output (decryptionBuffers.PlainText, plainTextLength)
+            |> first StreamDecryptionError.WriteError
+            |> StateT.lift
+
+        let! state =
+            State.CreateDecryptionState settings
+            |> first StreamDecryptionError.StateInitializationError
+
+        let decrypt =
+            decryptPartTo decryptionBuffers
+            >> fun state ->
+                StateT.run state
+                >> first StreamDecryptionError.DecryptionError
+                |> StateT
+
+        let rec inner () = monad {
+            let! readBytes, state = read ()
+            let plainTextLength = buffersFactory.GetPlainTextLength readBytes
+            let! messageType = decrypt readBytes
+            do! write plainTextLength
+            match messageType, state with
+            | Final, _ -> return ()
+            | _, Done -> return! Error IncompleteStream |> StateT.lift
+            | _, NotDone -> return! inner ()
+        }
+
+        do! StateT.run (inner ()) state |>> fst
+    }

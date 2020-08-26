@@ -180,7 +180,6 @@ release.sh
 localpackages/
 paket-files
 *.orig
-.paket/paket.exe
-.paket/Paket.Restore.targets
+.paket
 .fake
 .ionide

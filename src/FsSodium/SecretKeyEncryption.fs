@@ -5,12 +5,12 @@ open Milekic.YoLo
 open Milekic.YoLo.Validation
 open Milekic.YoLo.Result.Operators
 
-let private keyLength = Interop.crypto_secretbox_keybytes()
+let private keyLength = Interop.crypto_secretbox_keybytes() |> capToInt
 let private passwordHashingKeyLength =
     PasswordHashing.KeyLength.Validate keyLength
     |> Result.failOnError "Key length is not supported."
-let private nonceLength = Interop.crypto_secretbox_noncebytes()
-let private macLength = Interop.crypto_secretbox_macbytes()
+let private nonceLength = Interop.crypto_secretbox_noncebytes() |> capToInt
+let private macLength = Interop.crypto_secretbox_macbytes() |> capToInt
 type Key private (key) =
     inherit Secret(key)
     static member Generate() =

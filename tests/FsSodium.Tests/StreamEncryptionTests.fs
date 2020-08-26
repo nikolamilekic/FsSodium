@@ -5,67 +5,62 @@ open System.IO
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
-open Milekic.YoLo.UpdateResult
-open Milekic.YoLo.UpdateResult.Operators
 open FsCheck
+open FSharpPlus
+open FSharpPlus.Data
 
+open FsSodium
 open FsSodium.StreamEncryption
+open AlgorithmInfo
 
 initializeSodium()
 
 type Generators =
     static member ChunkLength() =
         Gen.choose(1, (Int32.MaxValue - macLength))
-        |> Gen.map (ChunkLength.Validate >> Result.failOnError "Chunk length could not be created")
+        |> Gen.map (ChunkLength.Validate >> Result.get)
         |> Arb.fromGen
 let config = { FsCheckConfig.defaultConfig with arbitrary = [typeof<Generators>] }
 let testProperty =  testPropertyWithConfig config
 
-let zeroKey = Array.zeroCreate 32
-let stream = Seq.init 10 byte |> Seq.chunkBySize 3 |> Seq.toList
-let streamEncryptionJob =
-    seq {
-        use enumerator = (stream |> List.toSeq).GetEnumerator()
-        let rec run index current = seq {
-            let currentIsLast = enumerator.MoveNext() |> not
-            let currentTag =
-                match currentIsLast, index with
-                | true, _ -> Final
-                | _, 1 -> Push
-                | _, 2 -> Rekey
-                | _ -> Message
-            yield current, currentTag
-            if currentIsLast |> not
-            then yield! run (index + 1) enumerator.Current
-        }
-        let empty = enumerator.MoveNext() |> not
-        if not empty then yield! run 0 enumerator.Current
-    }
-    |> List.ofSeq
-    |> traverse encryptPart
-let makeStreamDecryptionJob = traverse (decryptPart >> UpdateResult.map fst)
-let makeEncryptionState =
-    State.MakeEncryptionState
+let createEncryptionState =
+    State.CreateEncryptionState
     >> Result.failOnError "Encryption state generation failed"
-let makeDecryptionState =
-    State.MakeDecryptionState
+let createDecryptionState =
+    State.CreateDecryptionState
     >> Result.failOnError "Encryption state generation failed"
-    |> curry
-let encrypt key x =
-    let header, state = makeEncryptionState key
-    run state x
-    |> Result.failOnError "Part encryption failed."
-    |> fun (c, _) -> header, c
-let decrypt key header x =
-    let state = makeDecryptionState key header
-    run state x |> Result.map fst
+let testMessages =
+    Seq.init 10 byte
+    |> Seq.chunkBySize 3
+    |> Seq.zip [ Message; Push; Rekey; Final ]
+    |> toList
+let encryptTestMessages key = monad.strict {
+    let! (header, state) = State.CreateEncryptionState key
+    let! cipherTexts =
+        testMessages
+        |>> StreamEncryption.encryptPart
+        |> sequence
+        |> fun (x : StateT<_, Result<byte[] list * _, _>>) -> StateT.run x state
+        |>> fst
+    return header, cipherTexts
+}
+let decryptTestMessages key (header, cipherTexts : byte[] list) = monad.strict {
+    let! state = State.CreateDecryptionState(key, header)
+    return!
+        cipherTexts
+        |>> StreamEncryption.decryptPart
+        |> sequence
+        |> fun (x : StateT<_, Result<(MessageType * byte[]) list * _, _>>) ->
+            StateT.run x state
+        |>> fst
+}
 
+let zeros = Array.zeroCreate 32
 let alice = Key.Generate()
-let encryptWithFixture () = encrypt alice <| streamEncryptionJob
-let decryptWithFixture (header, parts) =
-    List.ofSeq parts |> makeStreamDecryptionJob |> decrypt alice header
-let getKeyCopy<'e> : UpdateResult<State, StateUpdate, _, 'e> = updateResult {
-    let! (state : State) = Update.getState |> liftUpdate
+let eve = Key.Generate()
+
+let copyStateKey : StateT<State, Result<_, _>> = monad {
+    let! state = State.get |> StateT.hoist
     return state.State.k |> Array.copy
 }
 
@@ -73,51 +68,55 @@ let getKeyCopy<'e> : UpdateResult<State, StateUpdate, _, 'e> = updateResult {
 let tests =
     testList "StreamEncryption" [
         yield testCase "Part roundtrip works" <| fun () ->
-            encryptWithFixture ()
-            |> decryptWithFixture
-            =! Ok stream
+            encryptTestMessages alice
+            |> Result.failOnError "Encryption failed"
+            |> decryptTestMessages alice
+            =! Ok testMessages
         yield testCase "Decrypt fails with missing part" <| fun () ->
-            let encrypted =
-                let h, c = encryptWithFixture ()
-                h, c |> Seq.skip 1
-            decryptWithFixture encrypted
-            =! (Error <| PartDecryptionError.SodiumError -1)
+            let header, cipherTexts =
+                encryptTestMessages alice
+                |> Result.failOnError "Encryption failed"
+            let cipherTexts = skip 1 cipherTexts
+            decryptTestMessages alice (header, cipherTexts)
+            =! (Error <| SodiumError -1)
         yield testCase "Decrypt fails with modified part" <| fun () ->
-            let encrypted =
-                let h, c = encryptWithFixture ()
-                let c = List.ofSeq c
-                let bytes = List.head c
-                bytes.[0] <- if bytes.[0] = 0uy then 1uy else 0uy
-                h, c
-            decryptWithFixture encrypted
-            =! (Error <| PartDecryptionError.SodiumError -1)
+            let header, cipherTexts =
+                encryptTestMessages alice
+                |> Result.failOnError "Encryption failed"
+            let head = List.head cipherTexts
+            head.[0] <- if head.[0] = 0uy then 1uy else 0uy
+            decryptTestMessages alice (header, cipherTexts)
+            =! (Error <| SodiumError -1)
         yield testCase "Decrypt fails with wrong header" <| fun () ->
-            let anotherHeader, _ =
-                State.MakeEncryptionState(alice)
-                |> Result.failOnError "Encryption state generation failed"
-            let encrypted =
-                let _, c = encryptWithFixture ()
-                anotherHeader, c
-            decryptWithFixture encrypted
-            =! (Error <| PartDecryptionError.SodiumError -1)
+            let anotherHeader, _ = createEncryptionState alice
+            let _, cipherTexts =
+                encryptTestMessages alice
+                |> Result.failOnError "Encryption failed"
+            let cipherTexts = skip 1 cipherTexts
+            decryptTestMessages alice (anotherHeader, cipherTexts)
+            =! (Error <| SodiumError -1)
         yield testCase "Decrypt fails with wrong key" <| fun () ->
-            encryptWithFixture ()
-            |> fun (header, parts) ->
-                makeStreamDecryptionJob parts
-                |> decrypt (Key.Generate()) header
-            =! (Error <| PartDecryptionError.SodiumError -1)
+            let header, cipherTexts =
+                encryptTestMessages alice
+                |> Result.failOnError "Encryption failed"
+            decryptTestMessages eve (header, cipherTexts)
+            =! (Error <| SodiumError -1)
 
         let checkKeyModificationAfterMessage shouldBeModified messageType =
-            updateResult {
-                let! initialKey = getKeyCopy
-                do! encryptPart ([|1uy; 2uy; 3uy|], messageType) >>- ignore
-                let! nextKey = getKeyCopy
+            let (_, state) = createEncryptionState alice
+            monad {
+                let! initialKey = copyStateKey
+                do!
+                    StreamEncryption.encryptPart (messageType, [|1uy; 2uy; 3uy|])
+                    |>> ignore
+                let! nextKey = copyStateKey
                 if shouldBeModified
                 then nextKey <>! initialKey
                 else nextKey =! initialKey
             }
-            |> encrypt alice
-            |> ignore
+            |> StateT.run <| state
+            |>> fst
+            =! Ok ()
 
         yield testCase "Key is not modified after encrypting message" <| fun () ->
             checkKeyModificationAfterMessage false Message
@@ -129,67 +128,87 @@ let tests =
             checkKeyModificationAfterMessage true Final
 
         yield testCase "Old state is disposed after encryption" <| fun () ->
-            updateResult {
-                let! (state : State) = Update.getState |> liftUpdate
-                state.State.k <>! zeroKey
-                do! encryptPart ([|1uy; 2uy; 3uy|], Message) >>- ignore
-                state.State.k =! zeroKey
+            let (_, state) = createEncryptionState alice
+            monad {
+                let! (state : State) = State.get |> StateT.hoist
+                state.State.k <>! zeros
+                do!
+                    StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
+                    |>> ignore
+                state.State.k =! zeros
             }
-            |> encrypt alice
-            |> ignore
+            |> StateT.run <| state
+            |>> ignore
+            =! Ok ()
         yield testCase "Old state is disposed after decryption" <| fun () ->
-            let h, c = encryptPart ([|1uy; 2uy; 3uy|], Message) |> encrypt alice
-            updateResult {
-                let! (state : State) = Update.getState |> liftUpdate
-                state.State.k <>! zeroKey
-                do! decryptPart c >>- ignore
-                state.State.k =! zeroKey
+            let (h, state) = createEncryptionState alice
+            let c =
+                StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
+                |> StateT.run <| state
+                |>> fst
+                |> Result.failOnError "Encryption failed"
+            monad {
+                let! (state : State) = State.get |> StateT.hoist
+                state.State.k <>! zeros
+                do! StreamEncryption.decryptPart c |>> ignore
+                state.State.k =! zeros
             }
-            |> decrypt alice h
+            |> StateT.run <| createDecryptionState (alice, h)
+            |>> ignore
             =! Ok ()
         yield testCase "Key is copied after encryption" <| fun () ->
-            updateResult {
-                let! initialKeyCopy = getKeyCopy
-                let! (initialState : State) = Update.getState |> liftUpdate
-                do! encryptPart ([|1uy; 2uy; 3uy|], Message) >>- ignore
-                let! (nextState : State) = Update.getState |> liftUpdate
-                initialKeyCopy <>! zeroKey
-                initialState.State.k =! zeroKey
-                initialKeyCopy =! nextState.State.k
+            let (_, state) = createEncryptionState alice
+            monad {
+                let! initialKey = copyStateKey
+                let! (initialState : State) = State.get |> StateT.hoist
+                do!
+                    StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
+                    |>> ignore
+                let! (nextState : State) = State.get |> StateT.hoist
+                initialKey <>! zeros
+                initialState.State.k =! zeros
+                initialKey =! nextState.State.k
             }
-            |> encrypt alice
-            |> ignore
+            |> StateT.run <| state
+            |>> ignore
+            =! Ok ()
         yield testCase "Key is copied after decryption" <| fun () ->
-            let header, c =
-                encryptPart ([|1uy; 2uy; 3uy|], Message)
-                |> encrypt alice
+            let (h, state) = createEncryptionState alice
+            let c =
+                StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
+                |> StateT.run <| state
+                |>> fst
+                |> Result.failOnError "Encryption failed"
 
-            updateResult {
-                let! initialKeyCopy = getKeyCopy
-                let! (initialState : State) = Update.getState |> liftUpdate
-                do! decryptPart c >>- ignore
-                let! (nextState : State) = Update.getState |> liftUpdate
-                initialKeyCopy <>! zeroKey
-                initialState.State.k =! zeroKey
+            monad {
+                let! initialKeyCopy = copyStateKey
+                let! (initialState : State) = State.get |> StateT.hoist
+                do! StreamEncryption.decryptPart c |>> ignore
+                let! (nextState : State) = State.get |> StateT.hoist
+                initialKeyCopy <>! zeros
+                initialState.State.k =! zeros
                 initialKeyCopy =! nextState.State.k
             }
-            |> decrypt alice header
+            |> StateT.run <| createDecryptionState (alice, h)
+            |>> ignore
             =! Ok ()
 
         let chunkLength =
-            ChunkLength.Validate 10 |> Result.failOnError "Unable to create chunk length"
+            ChunkLength.Validate 10
+            |> Result.failOnError "Unable to create chunk length"
 
         let testStreamRoundtripWithLength length () =
-            let sourceBuffer = FsSodium.Random.bytes length
+            let sourceBuffer = Random.bytes length
             use encryptionSource = new MemoryStream(sourceBuffer)
             let encryptionBuffer = Array.zeroCreate 500
             use encryptionDestination = new MemoryStream(encryptionBuffer)
-            let header, _ =
-                encryptStream chunkLength encryptionSource encryptionDestination
-                |> encrypt alice
+            let header =
+                StreamEncryption.encryptStream
+                    alice chunkLength encryptionSource encryptionDestination
+                |> Result.failOnError "Part encryption failed."
 
             int encryptionDestination.Position
-            =! getCipherTextStreamLength chunkLength length
+            =! StreamEncryption.getCipherTextStreamLength chunkLength length
 
             use decryptionSource =
                 let bufer =
@@ -202,8 +221,11 @@ let tests =
             use decryptionDestination =
                 new MemoryStream(decryptionDestinationBuffer)
 
-            decryptStream chunkLength decryptionSource decryptionDestination
-            |> decrypt alice header
+            StreamEncryption.decryptStream
+                (alice, header)
+                chunkLength
+                decryptionSource
+                decryptionDestination
             =! Ok()
 
             decryptionDestinationBuffer =! sourceBuffer
@@ -215,8 +237,9 @@ let tests =
                     (sprintf "Stream roundtrip works with length %i" x)
                     (testStreamRoundtripWithLength x))
 
-        yield testProperty "Get plaintext / ciphertext length roundtrip" <| fun (chunk, length) ->
+        yield testProperty "Get plaintext / ciphertext length roundtrip"
+            <| fun (chunk, length) ->
             length > 0 ==> lazy
-            (getCipherTextStreamLength chunk length
-            |> getPlainTextStreamLength chunk) =! length
+            (StreamEncryption.getCipherTextStreamLength chunk length
+            |> StreamEncryption.getPlainTextStreamLength chunk) =! length
     ]

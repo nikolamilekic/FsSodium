@@ -92,7 +92,7 @@ NUGET
       System.Memory (>= 4.5.3) - restriction: || (&& (< monoandroid) (< net46) (< netcoreapp2.0) (>= netstandard2.0) (< xamarinios) (< xamarinmac)) (&& (>= netcoreapp2.0) (< netcoreapp2.1)) (>= uap10.1)
       System.Security.AccessControl (>= 4.7) - restriction: || (>= monoandroid) (>= monotouch) (&& (< net46) (>= netstandard2.0)) (>= net461) (>= netcoreapp2.0) (>= xamarinios) (>= xamarinmac) (>= xamarintvos) (>= xamarinwatchos)
       System.Security.Principal.Windows (>= 4.7) - restriction: || (>= monoandroid) (>= monotouch) (&& (< net46) (>= netstandard2.0)) (>= net461) (>= netcoreapp2.0) (>= xamarinios) (>= xamarinmac) (>= xamarintvos) (>= xamarinwatchos)
-    Milekic.YoLo (2.1.0-dev.16) - storage: symlink
+    Milekic.YoLo (2.1.0-dev.17) - storage: symlink
       FSharp.Core (>= 4.3.4) - restriction: || (>= net45) (>= netstandard2.0)
     Mono.Cecil (0.11.2) - restriction: || (>= net461) (>= netstandard2.0)
     Perfolizer (0.2.1) - restriction: || (&& (>= net461) (>= netstandard2.0)) (>= netcoreapp2.0)

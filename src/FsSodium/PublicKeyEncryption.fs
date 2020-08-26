@@ -4,10 +4,10 @@ open System
 open Milekic.YoLo
 open Milekic.YoLo.Result.Operators
 
-let private publicKeyLength = Interop.crypto_box_publickeybytes()
-let private secretKeyLength = Interop.crypto_box_secretkeybytes()
-let private nonceLength = Interop.crypto_box_noncebytes()
-let private macLength = Interop.crypto_box_macbytes()
+let private publicKeyLength = Interop.crypto_box_publickeybytes() |> capToInt
+let private secretKeyLength = Interop.crypto_box_secretkeybytes() |> capToInt
+let private nonceLength = Interop.crypto_box_noncebytes() |> capToInt
+let private macLength = Interop.crypto_box_macbytes() |> capToInt
 
 type SecretKey private (secretKey) =
     inherit Secret(secretKey)

@@ -2,9 +2,9 @@ module FsSodium.PublicKeyAuthentication
 
 open System
 
-let private macLength = Interop.crypto_sign_bytes()
-let private publicKeyLength = Interop.crypto_sign_publickeybytes()
-let private secretKeyLength = Interop.crypto_sign_secretkeybytes()
+let private macLength = Interop.crypto_sign_bytes() |> capToInt
+let private publicKeyLength = Interop.crypto_sign_publickeybytes() |> capToInt
+let private secretKeyLength = Interop.crypto_sign_secretkeybytes() |> capToInt
 
 type SecretKey private (secretKey) =
     inherit Secret(secretKey)

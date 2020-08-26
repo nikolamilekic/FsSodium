@@ -2,7 +2,7 @@ module FsSodium.PasswordHashing
 
 open Milekic.YoLo
 
-module Salt = let length = Interop.crypto_pwhash_saltbytes()
+module Salt = let length = Interop.crypto_pwhash_saltbytes() |> capToInt
 type Salt =
     private | Salt of byte[]
     static member Length = Salt.length
@@ -38,10 +38,10 @@ module MemoryLimit =
     let maximum = Interop.crypto_pwhash_memlimit_max() |> capToInt
     let minimum = Interop.crypto_pwhash_memlimit_min() |> capToInt
 type MemoryLimit =
-    private | MemoryLimit of uint64
+    private | MemoryLimit of uint32
     static member Validate x =
         validateRange
-            MemoryLimit.minimum MemoryLimit.maximum (uint64 >> MemoryLimit) x
+            MemoryLimit.minimum MemoryLimit.maximum (uint32 >> MemoryLimit) x
     member this.Value = let (MemoryLimit x) = this in int x
 
 type HashPasswordParameters = {

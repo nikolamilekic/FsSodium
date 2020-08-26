@@ -1,54 +1,62 @@
 namespace FsSodium.Hashing
 
+open System
 open FSharpPlus
-open FSharpPlus.Data
 
 open FsSodium
 
-type HashingKeyLength = private | HashingKeyLength of int with
-    static member Minimum =
-        Interop.crypto_generichash_keybytes_min() |> HashingKeyLength
-    static member Maximum =
-        Interop.crypto_generichash_keybytes_max() |> HashingKeyLength
-    static member Recommended =
-        Interop.crypto_generichash_keybytes() |> HashingKeyLength
+module internal AlgorithmInfo =
+    let hashingKeyMinimumLength = Interop.crypto_generichash_keybytes_min()
+    let hashingKeyMaximumLength = Interop.crypto_generichash_keybytes_max()
+    let hashingKeyRecommendedLength = Interop.crypto_generichash_keybytes()
+
+    let hashMinimumLength = Interop.crypto_generichash_bytes_min()
+    let hashMaximumLength = Interop.crypto_generichash_bytes_max()
+    let hashRecommendedLength = Interop.crypto_generichash_bytes()
+
+open AlgorithmInfo
+
+type HashingKeyLength = private | HashingKeyLength of uint32 with
+    static member Minimum = HashingKeyLength hashingKeyMinimumLength
+    static member Maximum = HashingKeyLength hashingKeyMaximumLength
+    static member Recommended = HashingKeyLength hashingKeyRecommendedLength
     static member Custom x =
-        let result = HashingKeyLength x
-        if result < HashingKeyLength.Minimum || result > HashingKeyLength.Maximum
-        then Failure ()
-        else Success result
+        x
+        |> Result.protect uint32
+        |> first ignore
+        >>= (fun x ->
+            if x < hashingKeyMinimumLength || x > hashingKeyMaximumLength
+            then Error ()
+            else Ok <| HashingKeyLength x)
     member this.Get = let (HashingKeyLength x) = this in x
 type HashingKey = private | HashingKey of byte[] with
     static member Generate (HashingKeyLength x) =
-        (if x = 0 then null else Random.bytes x) |> HashingKey
+        (if x = 0u then null else Random.bytes (int x)) |> HashingKey
     static member None = HashingKey null
-    static member Create x =
-        if isNull x then HashingKey x |> Success else
+    static member Import x =
+        if isNull x then HashingKey x |> Ok else
         Array.length x |> HashingKeyLength.Custom |>> konst (HashingKey x)
     member this.Get = let (HashingKey x) = this in x
-type HashLength = private | HashLength of int with
-    static member Minimum =
-        Interop.crypto_generichash_bytes_min() |> HashLength
-    static member Maximum =
-        Interop.crypto_generichash_bytes_max() |> HashLength
-    static member Recommended =
-        Interop.crypto_generichash_bytes() |> HashLength
+type HashLength = private | HashLength of uint32 with
+    static member Minimum = HashLength hashMinimumLength
+    static member Maximum = HashLength hashMaximumLength
+    static member Recommended = HashLength hashRecommendedLength
     static member Custom x =
-        let result = HashLength x
-        if result < HashLength.Minimum || result > HashLength.Maximum
-        then Failure ()
-        else Success result
-    member this.Value = let (HashLength x) = this in x
-type HashingState = private | HashingState of state:byte[] * hashLength:int with
+        x
+        |> Result.protect uint32
+        |> first ignore
+        >>= (fun x ->
+            if x < hashMinimumLength || x > hashMaximumLength
+            then Error ()
+            else Ok <| HashLength x)
+    member this.Get = let (HashLength x) = this in x
+type HashingState = private | HashingState of state:byte[] * hashLength:uint32 with
     static member Create(HashingKey k, HashLength hashLength) =
         let state = Array.zeroCreate 361
         let keyLength = if isNull k then 0 else Array.length k
         let result =
             Interop.crypto_generichash_init(
-                state,
-                k,
-                uint64 keyLength,
-                uint64 hashLength)
+                state, k, uint32 keyLength, hashLength)
         if result = 0
         then Ok <| HashingState (state, hashLength)
         else Error (SodiumError result)
@@ -67,23 +75,20 @@ module Hashing =
         if result = 0 then Ok () else Error <| SodiumError result
     let completeHash (state : HashingState) =
         let state, hashLength = state.Get
-        let hash = Array.zeroCreate hashLength
+        let hash = Array.zeroCreate (int hashLength)
         let result =
-            Interop.crypto_generichash_final(
-                state,
-                hash,
-                uint64 hashLength)
+            Interop.crypto_generichash_final(state, hash, hashLength)
         if result = 0 then Ok hash else Error <| SodiumError result
     let hash (HashingKey key) (HashLength hashLength) input =
         let inputLength = Array.length input
-        let hash = Array.zeroCreate hashLength
+        let hash = Array.zeroCreate (int hashLength)
         let keyLength = if isNull key then 0 else Array.length key
         let result =
             Interop.crypto_generichash(
                 hash,
-                uint64 hashLength,
+                hashLength,
                 input,
                 uint64 inputLength,
                 key,
-                uint64 keyLength)
+                uint32 keyLength)
         if result = 0 then Ok hash else Error <| SodiumError result
