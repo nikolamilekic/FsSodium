@@ -1,48 +1,52 @@
-module FsSodium.PasswordHashing
+namespace FsSodium.PasswordHashing
 
 open Milekic.YoLo
+open FSharpPlus
 
-module Salt = let length = Interop.crypto_pwhash_saltbytes() |> capToInt
-type Salt =
-    private | Salt of byte[]
-    static member Length = Salt.length
-    static member Generate() = Random.bytes Salt.length |> Salt
-    static member Validate x = validateArrayLength Salt.length Salt x
-    member this.Value = let (Salt x) = this in x
+open FsSodium
 
-module NumberOfOperations =
-    let maximum = Interop.crypto_pwhash_opslimit_max() |> capToInt
-    let minimum = Interop.crypto_pwhash_opslimit_min() |> capToInt
-type NumberOfOperations =
-    private | NumberOfOperations of uint64
-    static member Validate x =
-        validateRange
-            NumberOfOperations.minimum
-            NumberOfOperations.maximum
-            (uint64 >> NumberOfOperations)
-            x
-    member this.Value = let (NumberOfOperations x) = this in int x
+module internal AlgorithmInfo =
+    let saltLength = Interop.crypto_pwhash_saltbytes() |> int
+    let numberOfOperationsMaximumCount = Interop.crypto_pwhash_opslimit_max()
+    let numberOfOperationsMinimumCount = Interop.crypto_pwhash_opslimit_min()
+    let algorithmDefault = Interop.crypto_pwhash_alg_default()
+    let memoryLimitMaximum = Interop.crypto_pwhash_memlimit_max()
+    let memoryLimitMinimum = Interop.crypto_pwhash_memlimit_min()
+    let keyMaximumLength = Interop.crypto_pwhash_bytes_max()
+    let keyMinimumLength = Interop.crypto_pwhash_bytes_min()
+    let passwordMinimumLength = Interop.crypto_pwhash_passwd_min()
+    let passwordMaximumLength = Interop.crypto_pwhash_passwd_max()
 
-module internal Algorithm =
-    let defaultAlgorithmInt = Interop.crypto_pwhash_alg_default()
-type AlgorithmCodeValidationError = AlgorithmIsNotSupported
-type Algorithm =
-    | Default
-    static member Validate = function
-        | x when x = Algorithm.defaultAlgorithmInt -> Ok Default
-        | _ -> Error AlgorithmIsNotSupported
-    member this.Value =  match this with
-                         | Default -> Algorithm.defaultAlgorithmInt
+open AlgorithmInfo
 
-module MemoryLimit =
-    let maximum = Interop.crypto_pwhash_memlimit_max() |> capToInt
-    let minimum = Interop.crypto_pwhash_memlimit_min() |> capToInt
-type MemoryLimit =
-    private | MemoryLimit of uint32
-    static member Validate x =
-        validateRange
-            MemoryLimit.minimum MemoryLimit.maximum (uint32 >> MemoryLimit) x
-    member this.Value = let (MemoryLimit x) = this in int x
+type Salt = private | Salt of byte[] with
+    static member Generate() = Random.bytes saltLength |> Salt
+    static member Import x =
+        if Array.length x <> saltLength then Error () else Ok <| Salt x
+    member this.Get = let (Salt x) = this in x
+type NumberOfOperations = private | NumberOfOperations of uint64 with
+    static member Minimum = NumberOfOperations numberOfOperationsMinimumCount
+    static member Maximum = NumberOfOperations numberOfOperationsMaximumCount
+    static member Custom x =
+        let casted = uint64 x
+        if casted < numberOfOperationsMinimumCount ||
+            casted > numberOfOperationsMaximumCount
+        then Error ()
+        else Ok <| NumberOfOperations x
+    member this.Get = let (NumberOfOperations x) = this in int x
+type Algorithm = Default with
+    static member Parse = function
+        | x when x = algorithmDefault -> Ok Default
+        | _ -> Error ()
+    member this.ToInt = match this with Default -> algorithmDefault
+type MemoryLimit = private | MemoryLimit of uint32 with
+    static member Custom x =
+        if x < memoryLimitMinimum || x > memoryLimitMaximum
+        then Error ()
+        else Ok <| MemoryLimit x
+    static member Minimum = MemoryLimit memoryLimitMinimum
+    static member Maximum = MemoryLimit memoryLimitMaximum
+    member this.Get = let (MemoryLimit x) = this in uint32 x
 
 type HashPasswordParameters = {
     NumberOfOperations : NumberOfOperations
@@ -50,51 +54,56 @@ type HashPasswordParameters = {
     Algorithm : Algorithm
     Salt : Salt
 }
+module HashPasswordParameters =
+    let inline _numberOfOperations f s =
+        s.NumberOfOperations |> f <&> fun v -> { s with NumberOfOperations = v }
+    let inline _memoryLimit f s =
+        s.MemoryLimit |> f <&> fun v -> { s with MemoryLimit = v }
+    let inline _algorithm f s =
+        s.Algorithm |> f <&> fun v -> { s with Algorithm = v }
+    let inline _salt f s = s.Salt |> f <&> fun v -> { s with Salt = v }
 
-module internal KeyLength =
-    let maximum = Interop.crypto_pwhash_bytes_max() |> capToInt
-    let minimum = Interop.crypto_pwhash_bytes_min() |> capToInt
-type KeyLength =
-    private | KeyLength of int
+type KeyLength = private | KeyLength of uint32 with
     static member Validate x =
-        validateRange KeyLength.minimum KeyLength.maximum KeyLength x
-    member this.Value = let (KeyLength x) = this in int x
-
-module internal Password =
-    let minimumLength = Interop.crypto_pwhash_passwd_min() |> capToInt
-    let maximumLength = Interop.crypto_pwhash_passwd_max() |> capToInt
+        x
+        |> Result.protect uint32
+        |> first ignore
+        >>= (fun x ->
+            if x < keyMinimumLength || x > keyMaximumLength
+            then Error ()
+            else Ok <| KeyLength x)
+    member this.Get = let (KeyLength x) = this in int x
 type Password private (secret) =
     inherit Secret(secret)
-    static member Validate secret =
+    static member Import secret =
+        let length = Array.length secret |> uint32
         let password = new Password(secret)
-        secret
-        |> Array.length
-        |> validateRange
-            Password.minimumLength
-            Password.maximumLength
-            (fun _ -> password)
-        |> Result.either Ok (fun x -> password.Dispose(); Error x)
 
-let hashPassword
-    (KeyLength keyLength)
-    {
-        Salt = (Salt salt)
-        Algorithm = algorithm
-        NumberOfOperations = (NumberOfOperations operations)
-        MemoryLimit = (MemoryLimit memory)
-    }
-    (password : Password) =
-    let secret = Array.zeroCreate keyLength
-    let result =
-        Interop.crypto_pwhash(
-            secret,
-            (uint64 keyLength),
-            password.Get,
-            (Array.length password.Get |> uint64),
-            salt,
-            operations,
-            memory,
-            algorithm.Value)
-    if result = 0
-    then Ok secret
-    else Error <| SodiumError result
+        if length < passwordMinimumLength || length > passwordMaximumLength
+        then password.Dispose(); Error ()
+        else Ok password
+[<RequireQualifiedAccess>]
+module PasswordHashing =
+    let hashPassword
+        (KeyLength keyLength)
+        {
+            Salt = (Salt salt)
+            Algorithm = algorithm
+            NumberOfOperations = (NumberOfOperations operations)
+            MemoryLimit = (MemoryLimit memory)
+        }
+        (password : Password) =
+        let secret = Array.zeroCreate (int keyLength)
+        let result =
+            Interop.crypto_pwhash(
+                secret,
+                (uint64 keyLength),
+                password.Get,
+                (Array.length password.Get |> uint64),
+                salt,
+                operations,
+                memory,
+                algorithm.ToInt)
+        if result = 0
+        then Ok secret
+        else Error <| SodiumError result

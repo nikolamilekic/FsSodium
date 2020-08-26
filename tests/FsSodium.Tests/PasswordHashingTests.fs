@@ -9,10 +9,10 @@ open FsSodium.PasswordHashing
 do initializeSodium()
 
 let operations =
-    NumberOfOperations.Validate 1
+    NumberOfOperations.Custom 1UL
     |> Result.failOnError "Number of operations creation failed"
 let memory =
-    MemoryLimit.Validate 8192 |> Result.failOnError "Memory limit creation failed"
+    MemoryLimit.Custom 8192u |> Result.failOnError "Memory limit creation failed"
 let keyLength =
     KeyLength.Validate 16 |> Result.failOnError "Key length creation failed"
 let hashWithFixture salt password =
@@ -22,11 +22,11 @@ let hashWithFixture salt password =
         Algorithm = Algorithm.Default
         Salt = salt
     }
-    hashPassword keyLength parameters password
+    PasswordHashing.hashPassword keyLength parameters password
     |> Result.failOnError "Hashing failed"
 let generateRandomPassword() =
     Random.bytes 16
-    |> Password.Validate
+    |> Password.Import
     |> Result.failOnError "Password generation failed"
 
 [<Tests>]
