@@ -5,13 +5,13 @@ open Swensen.Unquote
 open Milekic.YoLo
 open FSharpPlus
 
-open FsSodium.Hashing
+open FsSodium.Hashing.Generic
 
 initializeSodium()
 
 [<Tests>]
 let hashingTests =
-    testList "Hashing" [
+    testList "Generic hashing" [
         testList "All at once" [
             testCase "Same input produces same hash with no key" <| fun _ ->
                 let input = [| 1uy; 2uy; 3uy |]

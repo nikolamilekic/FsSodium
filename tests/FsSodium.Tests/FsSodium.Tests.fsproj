@@ -19,6 +19,7 @@
     <Compile Include="SecretKeyEncryptionTests.fs" />
     <Compile Include="StreamEncryptionTests.fs" />
     <Compile Include="HashingTests.fs" />
+    <Compile Include="HashingSHA512Tests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

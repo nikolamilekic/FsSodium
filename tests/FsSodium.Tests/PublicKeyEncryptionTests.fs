@@ -45,7 +45,6 @@ let publicKeyAuthenticationTests =
                 PublicKeyEncryption.decrypt (fst bob) (snd alice) (nonce, c)
             =! (Error <| SodiumError -1)
         yield testCase "Decrypt fails with modified nonce" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|]
             let nonce1 = Nonce.Generate()
             let nonce2 = Nonce.Generate()
             let plainText = [|1uy; 2uy; 3uy|]
@@ -55,7 +54,6 @@ let publicKeyAuthenticationTests =
                 PublicKeyEncryption.decrypt (fst bob) (snd alice) (nonce2, c)
             =! (Error <| SodiumError -1)
         yield testCase "Decrypt fails with wrong key" <| fun () ->
-            let plainText = [|1uy; 2uy; 3uy|]
             let nonce = Nonce.Generate()
             let plainText = [|1uy; 2uy; 3uy|]
             PublicKeyEncryption.encrypt (fst alice) (snd bob) (nonce, plainText)

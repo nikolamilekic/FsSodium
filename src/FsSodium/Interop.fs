@@ -260,6 +260,9 @@ extern uint32 crypto_generichash_keybytes_max();
 extern uint32 crypto_generichash_keybytes();
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_generichash_statebytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_generichash_init(
     byte[] state,
     byte[] key,
@@ -280,3 +283,22 @@ extern int crypto_generichash_final(
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern IntPtr sodium_version_string();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_hash_sha512_bytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_hash_sha512_statebytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_hash_sha512(byte[] output, byte[] input, uint64 inputLength);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_hash_sha512_init(byte[] state);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_hash_sha512_update(
+    byte[] state, byte[] input, uint64 inputLength);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_hash_sha512_final(byte[] state, byte[] output);

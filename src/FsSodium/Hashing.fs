@@ -1,8 +1,6 @@
-namespace FsSodium.Hashing
+namespace FsSodium.Hashing.Generic
 
-open System
 open FSharpPlus
-
 open FsSodium
 
 module internal AlgorithmInfo =
@@ -13,6 +11,8 @@ module internal AlgorithmInfo =
     let hashMinimumLength = Interop.crypto_generichash_bytes_min()
     let hashMaximumLength = Interop.crypto_generichash_bytes_max()
     let hashRecommendedLength = Interop.crypto_generichash_bytes()
+
+    let stateLength = Interop.crypto_generichash_statebytes() |> int
 
 open AlgorithmInfo
 
@@ -52,7 +52,7 @@ type HashLength = private | HashLength of uint32 with
     member this.Get = let (HashLength x) = this in x
 type HashingState = private | HashingState of state:byte[] * hashLength:uint32 with
     static member Create(HashingKey k, HashLength hashLength) =
-        let state = Array.zeroCreate 361
+        let state = Array.zeroCreate (stateLength)
         let keyLength = if isNull k then 0 else Array.length k
         let result =
             Interop.crypto_generichash_init(
