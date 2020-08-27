@@ -1,4 +1,4 @@
-#load "./.fake/build.fsx/intellisense.fsx"
+#load ".fake/build.fsx/intellisense.fsx"
 
 open System
 open System.IO
@@ -8,6 +8,7 @@ open Fake.Api
 open Fake.Core
 open Fake.Core.TargetOperators
 open Fake.DotNet
+open Fake.DotNet.Testing
 open Fake.IO
 open Fake.IO.Globbing.Operators
 open Fake.IO.FileSystemOperators
@@ -23,6 +24,7 @@ let releaseNotes =
     (ReleaseNotes.load "RELEASE_NOTES.md").Notes
     |> String.concat Environment.NewLine
 let pathToAssemblyInfoFile = "/src/FsSodium/obj/Release/netstandard2.0/FsSodium.AssemblyInfo.fs"
+let uploadPackageToNuget = false
 
 let (|Regex|_|) pattern input =
     let m = Regex.Match(input, pattern)
@@ -53,7 +55,6 @@ Target.create "Clean" <| fun _ ->
 
 Target.create "Build" <| fun _ ->
     DotNet.build id (productName + ".sln")
-
     !! "src/**/*.fsproj"
     |> toSeq
     |>> (fun projectPath ->
@@ -76,12 +77,15 @@ Target.create "Pack" <| fun _ ->
         (productName + ".sln")
 
 [ "Clean" ] ==> "Pack"
+
 Target.create "Test" <| fun _ ->
-    !! "tests/*.Tests/"
+    !! "tests/**/*.fsproj"
     |> toSeq
-    |>> (fun path ->
-        DotNet.exec (fun o -> { o with WorkingDirectory = path }) "run" "-c Release")
-    |> iter (fun (r : ProcessResult) -> if r.ExitCode <> 0 then failwith "Tests failed")
+    >>= fun projectPath ->
+        let projectName = Path.GetFileNameWithoutExtension projectPath
+        !! (sprintf "tests/%s/bin/release/**/%s.dll" projectName projectName)
+        |> toSeq
+    |> Expecto.run id
 [ "Build"; "Pack" ] ?=> "Test"
 
 Target.create "TestSourceLink" <| fun _ ->
@@ -118,10 +122,11 @@ Target.create "UploadArtifactsToGitHub" <| fun c ->
 [ "TestSourceLink"; "Test" ] ==> "UploadArtifactsToGitHub"
 
 Target.create "UploadPackageToNuget" <| fun _ ->
-    Paket.push <| fun p ->
-        { p with
-            ToolType = ToolType.CreateLocalTool()
-            WorkingDir = __SOURCE_DIRECTORY__ + "/publish" }
+    if uploadPackageToNuget then
+        Paket.push <| fun p ->
+            { p with
+                ToolType = ToolType.CreateLocalTool()
+                WorkingDir = __SOURCE_DIRECTORY__ + "/publish" }
 
 [ "TestSourceLink"; "Test" ] ==> "UploadPackageToNuget"
 
@@ -145,8 +150,9 @@ Target.create "AppVeyor" <| fun _ ->
 
         AppVeyor.updateBuild (fun p -> { p with Version = appVeyorVersion })
 
-[ "UploadArtifactsToGitHub"; "Test" ] ==> "AppVeyor"
+[ "UploadArtifactsToGitHub"; "UploadPackageToNuget"; "Test" ] ==> "AppVeyor"
 
 Target.create "Default" ignore
 [ "Build"; "Test" ] ==> "Default"
+
 Target.runOrDefault "Default"
