@@ -2,7 +2,5 @@ FSharp.Core
 libsodium
 Milekic.YoLo
 FSharpPlus
-
-group Build
 Microsoft.SourceLink.GitHub
 GitInfo
