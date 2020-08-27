@@ -302,3 +302,26 @@ extern int crypto_hash_sha512_update(
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern int crypto_hash_sha512_final(byte[] state, byte[] output);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_box_beforenmbytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_beforenm(
+    byte[] sharedKey, byte[] publicKey, byte[] secretKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_open_easy_afternm(
+    byte[] plainText,
+    byte[] cipherText,
+    uint64 cipherTextLength,
+    byte[] nonce,
+    byte[] sharedKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_box_easy_afternm(
+    byte[] cipherText,
+    byte[] plainText,
+    uint64 plainTextLength,
+    byte[] nonce,
+    byte[] sharedKey);

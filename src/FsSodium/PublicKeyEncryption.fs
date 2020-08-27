@@ -12,6 +12,7 @@ module internal AlgorithmInfo =
     let secretKeyLength = Interop.crypto_box_secretkeybytes() |> int
     let nonceLength = Interop.crypto_box_noncebytes() |> int
     let macLength = Interop.crypto_box_macbytes() |> int
+    let sharedKeyLength = Interop.crypto_box_beforenmbytes() |> int
 
 open AlgorithmInfo
 
@@ -37,6 +38,12 @@ and PublicKey = private | PublicKey of byte[] with
         let result = Interop.crypto_scalarmult_base(publicKey, secretKey.Get)
         if result = 0 then Ok <| PublicKey publicKey
         else Error <| SodiumError result
+and SharedKey (sharedKey) =
+    inherit Secret(sharedKey)
+    static member Import x =
+        if Array.length x <> sharedKeyLength
+        then Error ()
+        else Ok <| new SharedKey(x)
 type Nonce = private | Nonce of byte[] with
     member this.Get = let (Nonce x) = this in x
     static member Generate() = Random.bytes nonceLength |> Nonce
@@ -99,4 +106,64 @@ module PublicKeyEncryption =
         let buffers = buffersFactory.FromCipherText cipherText
         let cipherTextLength = Array.length cipherText
         decryptTo recipientKey senderKey buffers nonce cipherTextLength
+        |>> konst buffers.PlainText
+
+    let precomputeSharedKey (recipientKey : SecretKey) (PublicKey senderKey) =
+        let sharedKeyBuffer = Array.zeroCreate sharedKeyLength
+        let sharedKey =
+            SharedKey.Import sharedKeyBuffer
+            |> Result.failOnError "Could not import shared key"
+
+        let result =
+            Interop.crypto_box_beforenm(
+                sharedKeyBuffer, senderKey, recipientKey.Get)
+
+        if result = 0 then Ok sharedKey else Error <| SodiumError result
+    let encryptWithSharedKeyTo
+        (key : SharedKey)
+        (buffers : Buffers)
+        (Nonce nonce)
+        plainTextLength =
+
+        let plainText = buffers.PlainText
+        if Array.length plainText < plainTextLength then
+            invalidArg "plainTextLength" "Provided plain text buffer too small"
+
+        let result =
+            Interop.crypto_box_easy_afternm(
+                buffers.CipherText,
+                plainText,
+                uint64 plainTextLength,
+                nonce,
+                key.Get)
+
+        if result = 0 then Ok () else Error <| SodiumError result
+    let encryptWithSharedKey sharedKey (nonce, plainText) =
+        let buffers = buffersFactory.FromPlainText plainText
+        let plainTextLength = Array.length plainText
+        encryptWithSharedKeyTo sharedKey buffers nonce plainTextLength
+        |>> konst buffers.CipherText
+    let decryptWithSharedKeyTo
+        (key : SharedKey)
+        (buffers : Buffers)
+        (Nonce nonce)
+        cipherTextLength =
+
+        let cipherText = buffers.CipherText
+        if Array.length cipherText < cipherTextLength then
+            invalidArg "cipherTextLength" "Provided cipher text buffer too small"
+
+        let result =
+            Interop.crypto_box_open_easy_afternm(
+                buffers.PlainText,
+                cipherText,
+                uint64 cipherTextLength,
+                nonce,
+                key.Get)
+
+        if result = 0 then Ok () else Error <| SodiumError result
+    let decryptWithSharedKey sharedKey (nonce, cipherText) =
+        let buffers = buffersFactory.FromCipherText cipherText
+        let cipherTextLength = Array.length cipherText
+        decryptWithSharedKeyTo sharedKey buffers nonce cipherTextLength
         |>> konst buffers.PlainText
