@@ -4,11 +4,11 @@ module FsSodium.PublicKeyEncryption
 open Milekic.YoLo
 open FSharpPlus
 
-let publicKeyLength = Interop.crypto_box_publickeybytes() |> int
-let secretKeyLength = Interop.crypto_box_secretkeybytes() |> int
-let nonceLength = Interop.crypto_box_noncebytes() |> int
-let macLength = Interop.crypto_box_macbytes() |> int
-let sharedKeyLength = Interop.crypto_box_beforenmbytes() |> int
+let private publicKeyLength = Interop.crypto_box_publickeybytes() |> int
+let private secretKeyLength = Interop.crypto_box_secretkeybytes() |> int
+let private nonceLength = Interop.crypto_box_noncebytes() |> int
+let private macLength = Interop.crypto_box_macbytes() |> int
+let private sharedSecretLength = Interop.crypto_box_beforenmbytes() |> int
 
 type SecretKey private (secretKey) =
     inherit Secret(secretKey)
@@ -31,12 +31,17 @@ and PublicKey = private | PublicKey of byte[] with
         let result = Interop.crypto_scalarmult_base(publicKey, secretKey.Get)
         if result = 0 then Ok <| PublicKey publicKey
         else Error <| SodiumError result
-and SharedKey (sharedKey) =
-    inherit Secret(sharedKey)
-    static member Import x =
-        if Array.length x <> sharedKeyLength
-        then Error ()
-        else Ok <| new SharedKey(x)
+and SharedSecret (sharedSecret) =
+    inherit Secret(sharedSecret)
+    static member Precompute (secretKey : SecretKey) (publicKey : PublicKey) =
+        let sharedSecret = Array.zeroCreate sharedSecretLength
+        let result =
+            Interop.crypto_box_beforenm(
+                sharedSecret, publicKey.Get, secretKey.Get)
+
+        if result = 0
+        then Ok <| new SharedSecret(sharedSecret)
+        else Error <| SodiumError result
 type Nonce = private | Nonce of byte[] with
     member this.Get = let (Nonce x) = this in x
     static member Generate() = Random.bytes nonceLength |> Nonce
@@ -97,20 +102,8 @@ let decrypt recipientKey senderKey (nonce, cipherText) =
     let cipherTextLength = Array.length cipherText
     decryptTo recipientKey senderKey buffers nonce cipherTextLength
     |>> konst buffers.PlainText
-
-let precomputeSharedKey (recipientKey : SecretKey) (PublicKey senderKey) =
-    let sharedKeyBuffer = Array.zeroCreate sharedKeyLength
-    let sharedKey =
-        SharedKey.Import sharedKeyBuffer
-        |> Result.failOnError "Could not import shared key"
-
-    let result =
-        Interop.crypto_box_beforenm(
-            sharedKeyBuffer, senderKey, recipientKey.Get)
-
-    if result = 0 then Ok sharedKey else Error <| SodiumError result
-let encryptWithSharedKeyTo
-    (key : SharedKey)
+let encryptWithSharedSecretTo
+    (sharedSecret : SharedSecret)
     (buffers : Buffers)
     (Nonce nonce)
     plainTextLength =
@@ -125,16 +118,16 @@ let encryptWithSharedKeyTo
             plainText,
             uint64 plainTextLength,
             nonce,
-            key.Get)
+            sharedSecret.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
-let encryptWithSharedKey sharedKey (nonce, plainText) =
+let encryptWithSharedSecret sharedSecret (nonce, plainText) =
     let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
-    encryptWithSharedKeyTo sharedKey buffers nonce plainTextLength
+    encryptWithSharedSecretTo sharedSecret buffers nonce plainTextLength
     |>> konst buffers.CipherText
-let decryptWithSharedKeyTo
-    (key : SharedKey)
+let decryptWithSharedSecretTo
+    (sharedSecret : SharedSecret)
     (buffers : Buffers)
     (Nonce nonce)
     cipherTextLength =
@@ -149,11 +142,11 @@ let decryptWithSharedKeyTo
             cipherText,
             uint64 cipherTextLength,
             nonce,
-            key.Get)
+            sharedSecret.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
-let decryptWithSharedKey sharedKey (nonce, cipherText) =
+let decryptWithSharedSecret sharedSecret (nonce, cipherText) =
     let buffers = buffersFactory.FromCipherText cipherText
     let cipherTextLength = Array.length cipherText
-    decryptWithSharedKeyTo sharedKey buffers nonce cipherTextLength
+    decryptWithSharedSecretTo sharedSecret buffers nonce cipherTextLength
     |>> konst buffers.PlainText

@@ -20,15 +20,15 @@ let generateNonce () = PublicKeyEncryption.Nonce.Generate()
 let encrypt a b =
     PublicKeyEncryption.encrypt a b
     >> Result.failOnError "Encryption failed"
-let encryptWithSharedKey a =
-    PublicKeyEncryption.encryptWithSharedKey a
+let encryptWithSharedSecret a =
+    PublicKeyEncryption.encryptWithSharedSecret a
     >> Result.failOnError "Encryption failed"
 let decrypt = PublicKeyEncryption.decrypt
-let decryptWithSharedKey = PublicKeyEncryption.decryptWithSharedKey
+let decryptWithSharedSecret = PublicKeyEncryption.decryptWithSharedSecret
 let fromSecretKey = PublicKeyEncryption.PublicKey.FromSecretKey
-let precomputeSharedKey a =
-    PublicKeyEncryption.precomputeSharedKey a
-    >> Result.failOnError "Could not precompute shared key"
+let precomputeSharedSecret a =
+    PublicKeyEncryption.SharedSecret.Precompute a
+    >> Result.failOnError "Could not precompute shared secret"
 
 [<Tests>]
 let publicKeyAuthenticationTests =
@@ -71,22 +71,30 @@ let publicKeyAuthenticationTests =
             fromSecretKey (fst alice) =! Ok (snd alice)
             fromSecretKey (fst bob) =! Ok (snd bob)
             fromSecretKey (fst eve) =! Ok (snd eve)
-        testCase "Roundtrip with precomputed key works" <| fun _ ->
+        testCase "Roundtrip with precomputed secret works" <| fun _ ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = generateNonce()
             let cipherText =
-                let sharedKey = precomputeSharedKey (fst alice) (snd bob)
-                encryptWithSharedKey sharedKey (nonce, plainText)
+                let sharedSecret = precomputeSharedSecret (fst alice) (snd bob)
+                encryptWithSharedSecret sharedSecret (nonce, plainText)
             let decrypted =
-                let sharedKey = precomputeSharedKey (fst bob) (snd alice)
-                decryptWithSharedKey sharedKey (nonce, cipherText)
+                let sharedSecret = precomputeSharedSecret (fst bob) (snd alice)
+                decryptWithSharedSecret sharedSecret (nonce, cipherText)
             decrypted =! Ok plainText
         testCase "Roundtrip with precomputed key at decryption time only works" <| fun _ ->
             let plainText = [|1uy; 2uy; 3uy|]
             let nonce = generateNonce()
             let cipherText = encrypt (fst alice) (snd bob) (nonce, plainText)
             let decrypted =
-                let sharedKey = precomputeSharedKey (fst bob) (snd alice)
-                decryptWithSharedKey sharedKey (nonce, cipherText)
+                let sharedSecret = precomputeSharedSecret (fst bob) (snd alice)
+                decryptWithSharedSecret sharedSecret (nonce, cipherText)
+            decrypted =! Ok plainText
+        testCase "Roundtrip with precomputed key at encryption time only works" <| fun _ ->
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce = generateNonce()
+            let cipherText =
+                let sharedSecret = precomputeSharedSecret (fst alice) (snd bob)
+                encryptWithSharedSecret sharedSecret (nonce, plainText)
+            let decrypted = decrypt (fst bob) (snd alice) (nonce, cipherText)
             decrypted =! Ok plainText
     ]
