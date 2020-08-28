@@ -5,21 +5,12 @@ open System.IO
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
-open FsCheck
 open FSharpPlus
 open FSharpPlus.Data
 
 open FsSodium
 
 initializeSodium()
-
-type Generators =
-    static member ChunkLength() =
-        Gen.choose(1, (Int32.MaxValue - StreamEncryption.macLength))
-        |> Gen.map (StreamEncryption.ChunkLength.Validate >> Result.get)
-        |> Arb.fromGen
-let config = { FsCheckConfig.defaultConfig with arbitrary = [typeof<Generators>] }
-let testProperty =  testPropertyWithConfig config
 
 let createEncryptionState =
     StreamEncryption.createEncryptionState
@@ -196,54 +187,4 @@ let tests =
             |> StateT.run <| createDecryptionState (alice, h)
             |>> ignore
             =! Ok ()
-
-        let chunkLength =
-            StreamEncryption.ChunkLength.Validate 10
-            |> Result.failOnError "Unable to create chunk length"
-
-        let testStreamRoundtripWithLength length () =
-            let sourceBuffer = Random.bytes length
-            use encryptionSource = new MemoryStream(sourceBuffer)
-            let encryptionBuffer = Array.zeroCreate 500
-            use encryptionDestination = new MemoryStream(encryptionBuffer)
-            let header =
-                StreamEncryption.encryptStream
-                    alice chunkLength encryptionSource encryptionDestination
-                |> Result.failOnError "Part encryption failed."
-
-            int encryptionDestination.Position
-            =! StreamEncryption.getCipherTextStreamLength chunkLength length
-
-            use decryptionSource =
-                let bufer =
-                    Array.truncate
-                        (int encryptionDestination.Position)
-                        encryptionBuffer
-                new MemoryStream(bufer)
-
-            let decryptionDestinationBuffer = Array.zeroCreate length
-            use decryptionDestination =
-                new MemoryStream(decryptionDestinationBuffer)
-
-            StreamEncryption.decryptStream
-                (alice, header)
-                chunkLength
-                decryptionSource
-                decryptionDestination
-            =! Ok()
-
-            decryptionDestinationBuffer =! sourceBuffer
-
-        yield!
-            [5; 10; 22; 30]
-            |> Seq.map (fun x ->
-                testCase
-                    (sprintf "Stream roundtrip works with length %i" x)
-                    (testStreamRoundtripWithLength x))
-
-        yield testProperty "Get plaintext / ciphertext length roundtrip"
-            <| fun (chunk, length) ->
-            length > 0 ==> lazy
-            (StreamEncryption.getCipherTextStreamLength chunk length
-            |> StreamEncryption.getPlainTextStreamLength chunk) =! length
     ]
