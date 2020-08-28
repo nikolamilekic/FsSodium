@@ -7,8 +7,6 @@ open FSharpPlus
 
 open FsSodium
 
-initializeSodium()
-
 let createState = HashingSHA512.State.Create
 
 [<Tests>]

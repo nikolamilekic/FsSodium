@@ -5,8 +5,6 @@ open Swensen.Unquote
 open Milekic.YoLo
 open FsSodium
 
-do initializeSodium()
-
 let operations =
     PasswordHashing.NumberOfOperations.Custom 1UL
     |> Result.failOnError "Number of operations creation failed"

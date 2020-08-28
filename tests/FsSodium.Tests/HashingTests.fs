@@ -7,8 +7,6 @@ open FSharpPlus
 
 open FsSodium
 
-initializeSodium()
-
 let hashRecommended key = Hashing.hash key Hashing.HashLength.Recommended
 let zeroKey = Hashing.Key.None
 let createStateRecommended key =

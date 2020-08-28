@@ -10,8 +10,6 @@ open FSharpPlus.Data
 
 open FsSodium
 
-initializeSodium()
-
 let createEncryptionState =
     StreamEncryption.createEncryptionState
     >> Result.failOnError "Encryption state generation failed"

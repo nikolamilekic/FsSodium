@@ -7,32 +7,36 @@ open FSharpPlus
 open FSharpPlus.Data
 
 let internal macLength =
-    Interop.crypto_secretstream_xchacha20poly1305_abytes() |> int
+    lazy (Interop.crypto_secretstream_xchacha20poly1305_abytes() |> int)
 let private keyLength =
-    Interop.crypto_secretstream_xchacha20poly1305_keybytes() |> int
+    lazy (Interop.crypto_secretstream_xchacha20poly1305_keybytes() |> int)
 let private headerLength =
-    Interop.crypto_secretstream_xchacha20poly1305_headerbytes() |> int
-let private messageTag = Interop.crypto_secretstream_xchacha20poly1305_tag_message()
-let private finalTag = Interop.crypto_secretstream_xchacha20poly1305_tag_final()
-let private rekeyTag = Interop.crypto_secretstream_xchacha20poly1305_tag_rekey()
-let private pushTag = Interop.crypto_secretstream_xchacha20poly1305_tag_push()
+    lazy (Interop.crypto_secretstream_xchacha20poly1305_headerbytes() |> int)
+let private messageTag = lazy Interop.crypto_secretstream_xchacha20poly1305_tag_message()
+let private finalTag = lazy Interop.crypto_secretstream_xchacha20poly1305_tag_final()
+let private rekeyTag = lazy Interop.crypto_secretstream_xchacha20poly1305_tag_rekey()
+let private pushTag = lazy Interop.crypto_secretstream_xchacha20poly1305_tag_push()
 
 type Key private (key) =
     inherit Secret(key)
     static member Generate() =
-        let key = new Key(Array.zeroCreate keyLength)
+        Sodium.initialize ()
+        let key = new Key(Array.zeroCreate keyLength.Value)
         Interop.crypto_secretstream_xchacha20poly1305_keygen(key.Get)
         key
     static member Import x =
-        if Array.length x <> keyLength then Error () else Ok <| new Key(x)
+        Sodium.initialize ()
+        if Array.length x <> keyLength.Value then Error () else Ok <| new Key(x)
 type Header = private | Header of byte[] with
     static member Validate x =
-        if Array.length x <> headerLength then Error () else Ok <| Header x
+        Sodium.initialize ()
+        if Array.length x <> headerLength.Value then Error () else Ok <| Header x
     member this.Get = let (Header x) = this in x
 
 type State internal (state : Interop.crypto_secretstream_xchacha20poly1305_state) =
     member internal __.State = state
     member __.Dispose() =
+        Sodium.initialize ()
         let clear x =
             if not (isNull x) then
                 Interop.sodium_memzero(x, Array.length x |> uint32)
@@ -43,8 +47,9 @@ type State internal (state : Interop.crypto_secretstream_xchacha20poly1305_state
     interface IDisposable with member this.Dispose() = this.Dispose()
 
 let createEncryptionState(key : Key) =
+    Sodium.initialize ()
     let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
-    let header = Array.zeroCreate headerLength
+    let header = Array.zeroCreate headerLength.Value
     let result =
         Interop.crypto_secretstream_xchacha20poly1305_init_push(
             &s,
@@ -54,6 +59,7 @@ let createEncryptionState(key : Key) =
     then Ok (Header header, new State(s))
     else Error <| SodiumError result
 let createDecryptionState(key : Key, Header header) =
+    Sodium.initialize ()
     let mutable s = Interop.crypto_secretstream_xchacha20poly1305_state()
     let result =
         Interop.crypto_secretstream_xchacha20poly1305_init_pull(
@@ -66,7 +72,9 @@ let createDecryptionState(key : Key, Header header) =
 
 type MessageType = Message | Final | Push | Rekey
 
-let buffersFactory = BuffersFactory(macLength)
+let makeBuffersFactory () =
+    Sodium.initialize ()
+    BuffersFactory(macLength.Value)
 
 let setNewState newState = monad {
     let! (oldState : State) = State.get |> StateT.hoist
@@ -77,6 +85,8 @@ let encryptPartTo
     (encryptionBuffers : Buffers)
     messageType
     plainTextLength = monad {
+
+    Sodium.initialize ()
 
     let plainText = encryptionBuffers.PlainText
     if Array.length plainText < plainTextLength then
@@ -90,6 +100,7 @@ let encryptPartTo
         | Final -> finalTag
         | Push -> pushTag
         | Rekey -> rekeyTag
+        |> fun x -> x.Force()
     let result =
         Interop.crypto_secretstream_xchacha20poly1305_push(
             &s,
@@ -107,6 +118,7 @@ let encryptPartTo
     else return! SodiumError result |> Error |> StateT.lift
 }
 let encryptPart (messageType, plainText) = monad {
+    let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
     do! encryptPartTo buffers messageType plainTextLength
@@ -115,6 +127,8 @@ let encryptPart (messageType, plainText) = monad {
 let decryptPartTo
     (decryptionBuffers : Buffers)
     cipherTextLength = monad {
+
+    Sodium.initialize ()
 
     let cipherText = decryptionBuffers.CipherText
     if Array.length cipherText < cipherTextLength then
@@ -138,14 +152,15 @@ let decryptPartTo
     if result = 0 then
         do! setNewState (new State(s))
         match tag with
-        | x when x = finalTag -> return Final
-        | x when x = messageTag -> return Message
-        | x when x = pushTag -> return Push
-        | x when x = rekeyTag -> return Rekey
+        | x when x = finalTag.Value -> return Final
+        | x when x = messageTag.Value -> return Message
+        | x when x = pushTag.Value -> return Push
+        | x when x = rekeyTag.Value -> return Rekey
         | _ -> return failwith "Received an unexpected message tag from libsodium"
     else return! (SodiumError result) |> Error |> StateT.lift
 }
 let decryptPart cipherText = monad {
+    let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromCipherText cipherText
     GC.SuppressFinalize buffers
     let cipherTextLength = Array.length cipherText

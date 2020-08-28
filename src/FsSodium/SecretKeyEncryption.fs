@@ -3,26 +3,34 @@ module FsSodium.SecretKeyEncryption
 
 open FSharpPlus
 
-let private keyLength = Interop.crypto_secretbox_keybytes() |> int
-let private nonceLength = Interop.crypto_secretbox_noncebytes() |> int
-let private macLength = Interop.crypto_secretbox_macbytes() |> int
+let private keyLength = lazy (Interop.crypto_secretbox_keybytes() |> int)
+let private nonceLength = lazy (Interop.crypto_secretbox_noncebytes() |> int)
+let private macLength = lazy (Interop.crypto_secretbox_macbytes() |> int)
 
 type Key private (key) =
     inherit Secret(key)
     static member Generate() =
-        let key = new Key(Array.zeroCreate keyLength)
+        Sodium.initialize ()
+        let key = new Key(Array.zeroCreate keyLength.Value)
         Interop.crypto_secretbox_keygen(key.Get)
         key
     static member Import x =
-        if Array.length x <> keyLength then Error () else Ok <| new Key(x)
+        Sodium.initialize ()
+        if Array.length x <> keyLength.Value then Error () else Ok <| new Key(x)
 type Nonce = private | Nonce of byte[] with
     member this.Get = let (Nonce x) = this in x
-    static member Generate() = Random.bytes nonceLength |> Nonce
+    static member Generate() =
+        Sodium.initialize ()
+        Random.bytes nonceLength.Value |> Nonce
     static member Import x =
-        if Array.length x <> nonceLength then Error () else Ok <| Nonce x
+        Sodium.initialize ()
+        if Array.length x <> nonceLength.Value then Error () else Ok <| Nonce x
 
-let buffersFactory = BuffersFactory(macLength)
+let makeBuffersFactory () =
+    Sodium.initialize ()
+    BuffersFactory(macLength.Value)
 let encryptTo (key : Key) (buffers : Buffers) (Nonce nonce) plainTextLength =
+    Sodium.initialize ()
     let plainText = buffers.PlainText
     if Array.length plainText < plainTextLength then
         invalidArg "plainTextLength" "Provided plain text buffer is too small"
@@ -37,12 +45,14 @@ let encryptTo (key : Key) (buffers : Buffers) (Nonce nonce) plainTextLength =
 
     if result = 0 then Ok () else Error <| SodiumError result
 let encrypt key (nonce, plainText) =
+    let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
     encryptTo key buffers nonce plainTextLength
     |>> konst buffers.CipherText
 
 let decryptTo (key : Key) (buffers : Buffers) (Nonce nonce) cipherTextLength =
+    Sodium.initialize ()
     let cipherText = buffers.CipherText
     if Array.length cipherText < cipherTextLength then
         invalidArg "cipherTextLength" "Provided cipher text buffer too small"
@@ -57,6 +67,7 @@ let decryptTo (key : Key) (buffers : Buffers) (Nonce nonce) cipherTextLength =
 
     if result = 0 then Ok () else Error <| SodiumError result
 let decrypt key (nonce, cipherText) =
+    let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromCipherText cipherText
     let cipherTextLength = Array.length cipherText
     decryptTo key buffers nonce cipherTextLength

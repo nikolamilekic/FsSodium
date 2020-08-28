@@ -7,8 +7,6 @@ open FSharpPlus
 
 open FsSodium
 
-do initializeSodium()
-
 let generateKey =
     PublicKeyEncryption.SecretKey.Generate >> Result.failOnError "Key generation failed"
 

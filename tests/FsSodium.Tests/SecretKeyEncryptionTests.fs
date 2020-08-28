@@ -6,7 +6,6 @@ open Milekic.YoLo
 
 open FsSodium
 
-do initializeSodium()
 let alice = SecretKeyEncryption.Key.Generate()
 let eve = SecretKeyEncryption.Key.Generate()
 

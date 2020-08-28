@@ -8,14 +8,21 @@ type SodiumError = SodiumError of int
 
 [<RequireQualifiedAccess>]
 module Sodium =
-    let initialize() =
-        match Interop.sodium_init() with
-        | 0 | 1 -> Ok ()
-        | result -> Error <| SodiumError result
+    let initialize =
+        let initialize =
+            lazy
+            match Interop.sodium_init() with
+            | 0 | 1 -> ()
+            | _ -> failwith "Sodium could not be initialized"
+        initialize.Force
 
-    let getLibsodiumVersion() =
-        let intPtr = Interop.sodium_version_string()
-        Marshal.PtrToStringAnsi(intPtr)
+    let getSodiumVersion =
+        let version =
+            lazy
+            initialize ()
+            let intPtr = Interop.sodium_version_string()
+            Marshal.PtrToStringAnsi(intPtr)
+        version.Force
 
 type Buffers internal (cipherText : byte[], plainText : byte[]) =
     do
