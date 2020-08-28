@@ -1,23 +1,19 @@
-namespace FsSodium.PasswordHashing
+[<RequireQualifiedAccess>]
+module FsSodium.PasswordHashing
 
 open Milekic.YoLo
 open FSharpPlus
 
-open FsSodium
-
-module internal AlgorithmInfo =
-    let saltLength = Interop.crypto_pwhash_saltbytes() |> int
-    let numberOfOperationsMaximumCount = Interop.crypto_pwhash_opslimit_max()
-    let numberOfOperationsMinimumCount = Interop.crypto_pwhash_opslimit_min()
-    let algorithmDefault = Interop.crypto_pwhash_alg_default()
-    let memoryLimitMaximum = Interop.crypto_pwhash_memlimit_max()
-    let memoryLimitMinimum = Interop.crypto_pwhash_memlimit_min()
-    let keyMaximumLength = Interop.crypto_pwhash_bytes_max()
-    let keyMinimumLength = Interop.crypto_pwhash_bytes_min()
-    let passwordMinimumLength = Interop.crypto_pwhash_passwd_min()
-    let passwordMaximumLength = Interop.crypto_pwhash_passwd_max()
-
-open AlgorithmInfo
+let private saltLength = Interop.crypto_pwhash_saltbytes() |> int
+let private numberOfOperationsMaximumCount = Interop.crypto_pwhash_opslimit_max()
+let private numberOfOperationsMinimumCount = Interop.crypto_pwhash_opslimit_min()
+let private algorithmDefault = Interop.crypto_pwhash_alg_default()
+let private memoryLimitMaximum = Interop.crypto_pwhash_memlimit_max()
+let private memoryLimitMinimum = Interop.crypto_pwhash_memlimit_min()
+let private keyMaximumLength = Interop.crypto_pwhash_bytes_max()
+let private keyMinimumLength = Interop.crypto_pwhash_bytes_min()
+let private passwordMinimumLength = Interop.crypto_pwhash_passwd_min()
+let private passwordMaximumLength = Interop.crypto_pwhash_passwd_max()
 
 type Salt = private | Salt of byte[] with
     static member Generate() = Random.bytes saltLength |> Salt
@@ -47,7 +43,6 @@ type MemoryLimit = private | MemoryLimit of uint32 with
     static member Minimum = MemoryLimit memoryLimitMinimum
     static member Maximum = MemoryLimit memoryLimitMaximum
     member this.Get = let (MemoryLimit x) = this in uint32 x
-
 type HashPasswordParameters = {
     NumberOfOperations : NumberOfOperations
     MemoryLimit : MemoryLimit
@@ -80,28 +75,27 @@ type Password private (secret) =
         if length < passwordMinimumLength || length > passwordMaximumLength
         then Error ()
         else Ok <| new Password(password)
-[<RequireQualifiedAccess>]
-module PasswordHashing =
-    let hashPassword
-        (KeyLength keyLength)
-        {
-            Salt = (Salt salt)
-            Algorithm = algorithm
-            NumberOfOperations = (NumberOfOperations operations)
-            MemoryLimit = (MemoryLimit memory)
-        }
-        (password : Password) =
-        let secret = Array.zeroCreate (int keyLength)
-        let result =
-            Interop.crypto_pwhash(
-                secret,
-                (uint64 keyLength),
-                password.Get,
-                (Array.length password.Get |> uint64),
-                salt,
-                operations,
-                memory,
-                algorithm.ToInt)
-        if result = 0
-        then Ok secret
-        else Error <| SodiumError result
+
+let hashPassword
+    (KeyLength keyLength)
+    {
+        Salt = (Salt salt)
+        Algorithm = algorithm
+        NumberOfOperations = (NumberOfOperations operations)
+        MemoryLimit = (MemoryLimit memory)
+    }
+    (password : Password) =
+    let secret = Array.zeroCreate (int keyLength)
+    let result =
+        Interop.crypto_pwhash(
+            secret,
+            (uint64 keyLength),
+            password.Get,
+            (Array.length password.Get |> uint64),
+            salt,
+            operations,
+            memory,
+            algorithm.ToInt)
+    if result = 0
+    then Ok secret
+    else Error <| SodiumError result

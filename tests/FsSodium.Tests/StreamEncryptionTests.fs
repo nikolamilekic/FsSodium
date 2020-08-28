@@ -10,32 +10,36 @@ open FSharpPlus
 open FSharpPlus.Data
 
 open FsSodium
-open FsSodium.StreamEncryption
-open AlgorithmInfo
 
 initializeSodium()
 
 type Generators =
     static member ChunkLength() =
-        Gen.choose(1, (Int32.MaxValue - macLength))
-        |> Gen.map (ChunkLength.Validate >> Result.get)
+        Gen.choose(1, (Int32.MaxValue - StreamEncryption.macLength))
+        |> Gen.map (StreamEncryption.ChunkLength.Validate >> Result.get)
         |> Arb.fromGen
 let config = { FsCheckConfig.defaultConfig with arbitrary = [typeof<Generators>] }
 let testProperty =  testPropertyWithConfig config
 
 let createEncryptionState =
-    State.CreateEncryptionState
+    StreamEncryption.createEncryptionState
     >> Result.failOnError "Encryption state generation failed"
 let createDecryptionState =
-    State.CreateDecryptionState
+    StreamEncryption.createDecryptionState
     >> Result.failOnError "Encryption state generation failed"
+
+let Message = StreamEncryption.Message
+let Push = StreamEncryption.Push
+let Rekey = StreamEncryption.Rekey
+let Final = StreamEncryption.Final
+
 let testMessages =
     Seq.init 10 byte
     |> Seq.chunkBySize 3
     |> Seq.zip [ Message; Push; Rekey; Final ]
     |> toList
 let encryptTestMessages key = monad.strict {
-    let! (header, state) = State.CreateEncryptionState key
+    let (header, state) = createEncryptionState key
     let! cipherTexts =
         testMessages
         |>> StreamEncryption.encryptPart
@@ -44,22 +48,20 @@ let encryptTestMessages key = monad.strict {
         |>> fst
     return header, cipherTexts
 }
-let decryptTestMessages key (header, cipherTexts : byte[] list) = monad.strict {
-    let! state = State.CreateDecryptionState(key, header)
-    return!
-        cipherTexts
-        |>> StreamEncryption.decryptPart
-        |> sequence
-        |> fun (x : StateT<_, Result<(MessageType * byte[]) list * _, _>>) ->
-            StateT.run x state
-        |>> fst
-}
+let decryptTestMessages key (header, cipherTexts : byte[] list) =
+    let state = createDecryptionState(key, header)
+    cipherTexts
+    |>> StreamEncryption.decryptPart
+    |> sequence
+    |> fun (x : StateT<_, Result<(StreamEncryption.MessageType * byte[]) list * _, _>>) ->
+        StateT.run x state
+    |>> fst
 
 let zeros = Array.zeroCreate 32
-let alice = Key.Generate()
-let eve = Key.Generate()
+let alice = StreamEncryption.Key.Generate()
+let eve = StreamEncryption.Key.Generate()
 
-let copyStateKey : StateT<State, Result<_, _>> = monad {
+let copyStateKey : StateT<StreamEncryption.State, Result<_, _>> = monad {
     let! state = State.get |> StateT.hoist
     return state.State.k |> Array.copy
 }
@@ -130,7 +132,7 @@ let tests =
         yield testCase "Old state is disposed after encryption" <| fun () ->
             let (_, state) = createEncryptionState alice
             monad {
-                let! (state : State) = State.get |> StateT.hoist
+                let! (state : StreamEncryption.State) = State.get |> StateT.hoist
                 state.State.k <>! zeros
                 do!
                     StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
@@ -148,7 +150,7 @@ let tests =
                 |>> fst
                 |> Result.failOnError "Encryption failed"
             monad {
-                let! (state : State) = State.get |> StateT.hoist
+                let! (state : StreamEncryption.State) = State.get |> StateT.hoist
                 state.State.k <>! zeros
                 do! StreamEncryption.decryptPart c |>> ignore
                 state.State.k =! zeros
@@ -160,11 +162,12 @@ let tests =
             let (_, state) = createEncryptionState alice
             monad {
                 let! initialKey = copyStateKey
-                let! (initialState : State) = State.get |> StateT.hoist
+                let! (initialState : StreamEncryption.State) = State.get |> StateT.hoist
                 do!
                     StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
                     |>> ignore
-                let! (nextState : State) = State.get |> StateT.hoist
+                let! (nextState : StreamEncryption.State) =
+                    State.get |> StateT.hoist
                 initialKey <>! zeros
                 initialState.State.k =! zeros
                 initialKey =! nextState.State.k
@@ -182,9 +185,10 @@ let tests =
 
             monad {
                 let! initialKeyCopy = copyStateKey
-                let! (initialState : State) = State.get |> StateT.hoist
+                let! (initialState : StreamEncryption.State) =
+                    State.get |> StateT.hoist
                 do! StreamEncryption.decryptPart c |>> ignore
-                let! (nextState : State) = State.get |> StateT.hoist
+                let! (nextState : StreamEncryption.State) = State.get |> StateT.hoist
                 initialKeyCopy <>! zeros
                 initialState.State.k =! zeros
                 initialKeyCopy =! nextState.State.k
@@ -194,7 +198,7 @@ let tests =
             =! Ok ()
 
         let chunkLength =
-            ChunkLength.Validate 10
+            StreamEncryption.ChunkLength.Validate 10
             |> Result.failOnError "Unable to create chunk length"
 
         let testStreamRoundtripWithLength length () =

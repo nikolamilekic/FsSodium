@@ -1,14 +1,11 @@
-namespace FsSodium.PublicKeyAuthentication
+[<RequireQualifiedAccess>]
+module FsSodium.PublicKeyAuthentication
 
 open System
-open FsSodium
 
-module internal AlgorithmInfo =
-    let macLength = Interop.crypto_sign_bytes() |> int
-    let publicKeyLength = Interop.crypto_sign_publickeybytes() |> int
-    let secretKeyLength = Interop.crypto_sign_secretkeybytes() |> int
-
-open AlgorithmInfo
+let private macLength = Interop.crypto_sign_bytes() |> int
+let private publicKeyLength = Interop.crypto_sign_publickeybytes() |> int
+let private secretKeyLength = Interop.crypto_sign_secretkeybytes() |> int
 
 type SecretKey private (secretKey) =
     inherit Secret(secretKey)
@@ -37,26 +34,24 @@ type Mac = private | Mac of byte[] with
         if Array.length x <> macLength then Error () else Ok <| Mac x
     member this.Get = let (Mac x) = this in x
 
-[<RequireQualifiedAccess>]
-module PublicKeyAuthentication =
-    let sign (secretKey : SecretKey) message =
-        let messageLength = Array.length message
-        let mac = Array.zeroCreate macLength
-        let result =
-            Interop.crypto_sign_detached(
-                mac,
-                IntPtr.Zero,
-                message,
-                uint64 messageLength,
-                secretKey.Get)
-        if result = 0 then Ok <| Mac mac
-        else Error <| SodiumError result
-    let verify (PublicKey key) (message, (Mac mac)) =
-        let messageLength = Array.length message
-        let result =
-            Interop.crypto_sign_verify_detached(
-                mac,
-                message,
-                uint64 messageLength,
-                key)
-        if result = 0 then Ok () else Error <| SodiumError result
+let sign (secretKey : SecretKey) message =
+    let messageLength = Array.length message
+    let mac = Array.zeroCreate macLength
+    let result =
+        Interop.crypto_sign_detached(
+            mac,
+            IntPtr.Zero,
+            message,
+            uint64 messageLength,
+            secretKey.Get)
+    if result = 0 then Ok <| Mac mac
+    else Error <| SodiumError result
+let verify (PublicKey key) (message, (Mac mac)) =
+    let messageLength = Array.length message
+    let result =
+        Interop.crypto_sign_verify_detached(
+            mac,
+            message,
+            uint64 messageLength,
+            key)
+    if result = 0 then Ok () else Error <| SodiumError result
