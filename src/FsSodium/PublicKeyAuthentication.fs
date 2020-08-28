@@ -41,9 +41,8 @@ type Mac = private | Mac of byte[] with
         if Array.length x <> macLength.Value then Error () else Ok <| Mac x
     member this.Get = let (Mac x) = this in x
 
-let sign (secretKey : SecretKey) message =
+let signWithLength (secretKey : SecretKey) message messageLength =
     Sodium.initialize ()
-    let messageLength = Array.length message
     let mac = Array.zeroCreate macLength.Value
     let result =
         Interop.crypto_sign_detached(
@@ -54,9 +53,10 @@ let sign (secretKey : SecretKey) message =
             secretKey.Get)
     if result = 0 then Ok <| Mac mac
     else Error <| SodiumError result
-let verify (PublicKey key) (Mac mac) message =
+let sign secretKey message =
+    signWithLength secretKey message (Array.length message)
+let verifyWithLength (PublicKey key) (Mac mac) message messageLength =
     Sodium.initialize ()
-    let messageLength = Array.length message
     let result =
         Interop.crypto_sign_verify_detached(
             mac,
@@ -64,3 +64,5 @@ let verify (PublicKey key) (Mac mac) message =
             uint64 messageLength,
             key)
     if result = 0 then Ok () else Error <| SodiumError result
+let verify publicKey mac message =
+    verifyWithLength publicKey mac message (Array.length message)

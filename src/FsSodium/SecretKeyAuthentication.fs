@@ -20,9 +20,8 @@ type Mac = private | Mac of byte[] with
         if Array.length x <> macLength.Value then Error () else Ok <| Mac x
     member this.Get = let (Mac x) = this in x
 
-let sign (key : Key) message =
+let signWithLength (key : Key) message messageLength =
     Sodium.initialize ()
-    let messageLength = Array.length message
     let mac = Array.zeroCreate macLength.Value
     let result =
         Interop.crypto_auth(
@@ -32,9 +31,9 @@ let sign (key : Key) message =
             key.Get)
     if result = 0 then Ok <| Mac mac
     else Error <| SodiumError result
-let verify (key : Key) (Mac mac) message =
+let sign key message = signWithLength key message (Array.length message)
+let verifyWithLength (key : Key) (Mac mac) message messageLength =
     Sodium.initialize ()
-    let messageLength = Array.length message
     let result =
         Interop.crypto_auth_verify(
             mac,
@@ -42,3 +41,5 @@ let verify (key : Key) (Mac mac) message =
             uint64 messageLength,
             key.Get)
     if result = 0 then Ok () else Error <| SodiumError result
+let verify key mac message =
+    verifyWithLength key mac message (Array.length message)

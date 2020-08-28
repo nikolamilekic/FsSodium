@@ -77,15 +77,15 @@ type State = private | State of state:byte[] * hashLength:uint32 with
     member internal this.Get =
         let (State (bytes, length)) = this in bytes, length
 
-let hashPart (state : State) input =
+let hashPartWithLength (state : State) input inputLength =
     Sodium.initialize ()
-    let inputLength = Array.length input
     let result =
         Interop.crypto_generichash_update(
             fst state.Get,
             input,
             uint64 inputLength)
     if result = 0 then Ok () else Error <| SodiumError result
+let hashPart state input = hashPartWithLength state input (Array.length input)
 let completeHash (state : State) =
     Sodium.initialize ()
     let state, hashLength = state.Get
@@ -93,9 +93,8 @@ let completeHash (state : State) =
     let result =
         Interop.crypto_generichash_final(state, hash, hashLength)
     if result = 0 then Ok hash else Error <| SodiumError result
-let hash (Key key) (HashLength hashLength) input =
+let hashWithLength (Key key) (HashLength hashLength) input inputLength =
     Sodium.initialize ()
-    let inputLength = Array.length input
     let hash = Array.zeroCreate (int hashLength)
     let keyLength = if isNull key then 0 else Array.length key
     let result =
@@ -107,3 +106,5 @@ let hash (Key key) (HashLength hashLength) input =
             key,
             uint32 keyLength)
     if result = 0 then Ok hash else Error <| SodiumError result
+let hash key hashLength input =
+    hashWithLength key hashLength input (Array.length input)
