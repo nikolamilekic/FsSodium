@@ -26,6 +26,7 @@
     <Compile Include="PasswordHashing.fs" />
     <Compile Include="PublicKeyAuthentication.fs" />
     <Compile Include="PublicKeyEncryption.fs" />
+    <Compile Include="SecretKeyAuthentication.fs" />
     <Compile Include="SecretKeyEncryption.fs" />
     <Compile Include="StreamEncryption.fs" />
     <Compile Include="Hashing.fs" />

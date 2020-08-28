@@ -325,3 +325,23 @@ extern int crypto_box_easy_afternm(
     uint64 plainTextLength,
     byte[] nonce,
     byte[] sharedKey);
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_auth_keybytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_auth_bytes();
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_auth(
+    byte[] tag,
+    byte[] plainText,
+    uint64 plainTextLength,
+    byte[] secretKey)
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_auth_verify(
+    byte[] tag,
+    byte[] plainText,
+    uint64 plainTextLength,
+    byte[] secretKey)
