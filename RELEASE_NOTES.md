@@ -1,8 +1,9 @@
 ### 0.3-dev - Unreleased
-* Refactored validation logic
-* Hashing
-* getLibsodiumVersion
-* Changed stream encryption functions to take actual streams
+* Hashing (both generic and SHA512)
+* Common.getSodiumVersion
+* SecretKeyAuthentication
+* The library now initializes libsodium automatically
+* Refactorying and API cleanup
 
 ### 0.2 - 2019/07/30
 * Switched to using Milekic.YoLo library
