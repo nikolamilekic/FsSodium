@@ -15,10 +15,9 @@ type SecretKey private (secretKey) =
     static member Generate() =
         let publicKey = Array.zeroCreate publicKeyLength
         let secretKey = Array.zeroCreate secretKeyLength
-        let secret = new SecretKey(secretKey)
         let result = Interop.crypto_sign_keypair(publicKey, secretKey)
-        if result = 0 then Ok (secret, PublicKey publicKey)
-        else (secret :> IDisposable).Dispose(); Error <| SodiumError result
+        if result = 0 then Ok (new SecretKey(secretKey), PublicKey publicKey)
+        else Error <| SodiumError result
     static member Import x =
         if Array.length x <> secretKeyLength
         then Error ()

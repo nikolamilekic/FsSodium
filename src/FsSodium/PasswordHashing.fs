@@ -75,13 +75,11 @@ type KeyLength = private | KeyLength of uint32 with
     member this.Get = let (KeyLength x) = this in int x
 type Password private (secret) =
     inherit Secret(secret)
-    static member Import secret =
-        let length = Array.length secret |> uint32
-        let password = new Password(secret)
-
+    static member Import password =
+        let length = Array.length password |> uint32
         if length < passwordMinimumLength || length > passwordMaximumLength
-        then password.Dispose(); Error ()
-        else Ok password
+        then Error ()
+        else Ok <| new Password(password)
 [<RequireQualifiedAccess>]
 module PasswordHashing =
     let hashPassword
