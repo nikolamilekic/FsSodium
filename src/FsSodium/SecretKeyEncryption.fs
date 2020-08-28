@@ -44,7 +44,7 @@ let encryptTo (key : Key) (buffers : Buffers) (Nonce nonce) plainTextLength =
             key.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
-let encrypt key (nonce, plainText) =
+let encrypt key nonce plainText =
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
@@ -66,7 +66,7 @@ let decryptTo (key : Key) (buffers : Buffers) (Nonce nonce) cipherTextLength =
             key.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
-let decrypt key (nonce, cipherText) =
+let decrypt key nonce cipherText =
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromCipherText cipherText
     let cipherTextLength = Array.length cipherText

@@ -84,7 +84,7 @@ let encryptTo
             senderKey.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
-let encrypt senderKey recipientKey (nonce, plainText) =
+let encrypt senderKey recipientKey nonce plainText =
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
@@ -114,7 +114,7 @@ let decryptTo
             recipientKey.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
-let decrypt recipientKey senderKey (nonce, cipherText) =
+let decrypt recipientKey senderKey nonce cipherText =
     Sodium.initialize ()
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromCipherText cipherText
@@ -142,7 +142,7 @@ let encryptWithSharedSecretTo
             sharedSecret.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
-let encryptWithSharedSecret sharedSecret (nonce, plainText) =
+let encryptWithSharedSecret sharedSecret nonce plainText =
     Sodium.initialize ()
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromPlainText plainText
@@ -170,7 +170,7 @@ let decryptWithSharedSecretTo
             sharedSecret.Get)
 
     if result = 0 then Ok () else Error <| SodiumError result
-let decryptWithSharedSecret sharedSecret (nonce, cipherText) =
+let decryptWithSharedSecret sharedSecret nonce cipherText =
     Sodium.initialize ()
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromCipherText cipherText

@@ -54,7 +54,7 @@ let sign (secretKey : SecretKey) message =
             secretKey.Get)
     if result = 0 then Ok <| Mac mac
     else Error <| SodiumError result
-let verify (PublicKey key) (message, (Mac mac)) =
+let verify (PublicKey key) (Mac mac) message =
     Sodium.initialize ()
     let messageLength = Array.length message
     let result =

@@ -117,7 +117,7 @@ let encryptPartTo
         return ()
     else return! SodiumError result |> Error |> StateT.lift
 }
-let encryptPart (messageType, plainText) = monad {
+let encryptPart messageType plainText = monad {
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText

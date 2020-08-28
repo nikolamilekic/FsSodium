@@ -31,7 +31,7 @@ let encryptTestMessages key = monad.strict {
     let (header, state) = createEncryptionState key
     let! cipherTexts =
         testMessages
-        |>> StreamEncryption.encryptPart
+        |>> uncurry StreamEncryption.encryptPart
         |> sequence
         |> fun (x : StateT<_, Result<byte[] list * _, _>>) -> StateT.run x state
         |>> fst
@@ -98,7 +98,7 @@ let tests =
             monad {
                 let! initialKey = copyStateKey
                 do!
-                    StreamEncryption.encryptPart (messageType, [|1uy; 2uy; 3uy|])
+                    StreamEncryption.encryptPart messageType [|1uy; 2uy; 3uy|]
                     |>> ignore
                 let! nextKey = copyStateKey
                 if shouldBeModified
@@ -124,7 +124,7 @@ let tests =
                 let! (state : StreamEncryption.State) = State.get |> StateT.hoist
                 state.State.k <>! zeros
                 do!
-                    StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
+                    StreamEncryption.encryptPart Message [|1uy; 2uy; 3uy|]
                     |>> ignore
                 state.State.k =! zeros
             }
@@ -134,7 +134,7 @@ let tests =
         yield testCase "Old state is disposed after decryption" <| fun () ->
             let (h, state) = createEncryptionState alice
             let c =
-                StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
+                StreamEncryption.encryptPart Message [|1uy; 2uy; 3uy|]
                 |> StateT.run <| state
                 |>> fst
                 |> Result.failOnError "Encryption failed"
@@ -153,7 +153,7 @@ let tests =
                 let! initialKey = copyStateKey
                 let! (initialState : StreamEncryption.State) = State.get |> StateT.hoist
                 do!
-                    StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
+                    StreamEncryption.encryptPart Message [|1uy; 2uy; 3uy|]
                     |>> ignore
                 let! (nextState : StreamEncryption.State) =
                     State.get |> StateT.hoist
@@ -167,7 +167,7 @@ let tests =
         yield testCase "Key is copied after decryption" <| fun () ->
             let (h, state) = createEncryptionState alice
             let c =
-                StreamEncryption.encryptPart (Message, [|1uy; 2uy; 3uy|])
+                StreamEncryption.encryptPart Message [|1uy; 2uy; 3uy|]
                 |> StateT.run <| state
                 |>> fst
                 |> Result.failOnError "Encryption failed"

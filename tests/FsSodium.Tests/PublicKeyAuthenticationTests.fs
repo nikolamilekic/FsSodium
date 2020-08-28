@@ -22,7 +22,7 @@ let publicKeyAuthenticationTests =
         yield testCase "Verify works for unmodified message" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let mac = signWithFixture plainText
-            verifyWithFixture (plainText, mac) =! Ok ()
+            verifyWithFixture mac plainText =! Ok ()
         yield testCase "Verify fails for modified signature" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let rawMac = (signWithFixture plainText).Get
@@ -30,13 +30,13 @@ let publicKeyAuthenticationTests =
             let mac =
                 PublicKeyAuthentication.Mac.Import rawMac
                 |> Result.failOnError "Could not reimport mac"
-            verifyWithFixture (plainText, mac)
+            verifyWithFixture mac plainText
             =! (Error <| SodiumError -1)
         yield testCase "Verify fails for modified message" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let mac = signWithFixture  plainText
             plainText.[0] <- 0uy
-            verifyWithFixture (plainText, mac)
+            verifyWithFixture mac plainText
             =! (Error <| SodiumError -1)
         yield testCase "Verify fails for wrong key" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
@@ -44,7 +44,7 @@ let publicKeyAuthenticationTests =
             let pkEve =
                 PublicKeyAuthentication.SecretKey.Generate() |>> snd
                 |> Result.failOnError "Eve key generation failed"
-            PublicKeyAuthentication.verify pkEve (plainText, mac)
+            PublicKeyAuthentication.verify pkEve mac plainText
             =! (Error <| SodiumError -1)
         yield testCase "Public key computation from secret key works" <| fun () ->
             PublicKeyAuthentication.PublicKey.FromSecretKey secretKey
