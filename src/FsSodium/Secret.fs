@@ -14,7 +14,7 @@ type Secret(secret) =
     abstract member Dispose : unit -> unit
     default __.Dispose() =
         Interop.sodium_munlock(secret, secretLength) |> ignore
-    member internal __.Get = secret
+    member __.Get = secret
     interface IDisposable with
         member this.Dispose() = this.Dispose(); GC.SuppressFinalize this
     override this.Finalize() = this.Dispose()
