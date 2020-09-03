@@ -1,7 +1,5 @@
 module FsSodium.Random
 
-open FSharpPlus
-
 let bytes count =
     Sodium.initialize ()
     let result = Array.zeroCreate count

@@ -1,7 +1,6 @@
 namespace FsSodium
 
 open System.Runtime.InteropServices
-open FSharpPlus
 open FSharpPlus.Math.Generic
 
 type SodiumError = SodiumError of int
@@ -26,8 +25,8 @@ module Sodium =
 
 type Buffers internal (cipherText : byte[], plainText : byte[]) =
     do
-        if Array.length cipherText = 0 then invalidArg "cipherText" "cipherText buffer is empty"
-        if Array.length plainText = 0 then invalidArg "plainText" "plainText buffer is empty"
+        if Array.isEmpty cipherText then invalidArg "cipherText" "cipherText buffer is empty"
+        if Array.isEmpty plainText then invalidArg "plainText" "plainText buffer is empty"
 
     member __.PlainText = plainText
     member __.CipherText = cipherText

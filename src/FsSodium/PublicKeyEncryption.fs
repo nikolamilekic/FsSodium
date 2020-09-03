@@ -1,7 +1,6 @@
 [<RequireQualifiedAccess>]
 module FsSodium.PublicKeyEncryption
 
-open Milekic.YoLo
 open FSharpPlus
 
 let private publicKeyLength = lazy (Interop.crypto_box_publickeybytes() |> int)

@@ -80,7 +80,7 @@ type KeyLength = private | KeyLength of uint32 with
         Sodium.initialize ()
         x
         |> Result.protect uint32
-        |> first ignore
+        |> Result.mapError ignore
         >>= (fun x ->
             if x < keyMinimumLength.Value || x > keyMaximumLength.Value
             then Error ()

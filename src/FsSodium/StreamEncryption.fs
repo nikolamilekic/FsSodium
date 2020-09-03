@@ -2,7 +2,6 @@
 module FsSodium.StreamEncryption
 
 open System
-open System.IO
 open FSharpPlus
 open FSharpPlus.Data
 

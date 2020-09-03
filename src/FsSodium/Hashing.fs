@@ -26,7 +26,7 @@ type KeyLength = private | KeyLength of uint32 with
 
         x
         |> Result.protect uint32
-        |> first ignore
+        |> Result.mapError ignore
         >>= (fun x ->
             if x < hashingKeyMinimumLength.Value ||
                 x > hashingKeyMaximumLength.Value
@@ -56,7 +56,7 @@ type HashLength = private | HashLength of uint32 with
 
         x
         |> Result.protect uint32
-        |> first ignore
+        |> Result.mapError ignore
         >>= (fun x ->
             if x < hashMinimumLength.Value ||
                 x > hashMaximumLength.Value

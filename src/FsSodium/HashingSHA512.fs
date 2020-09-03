@@ -1,7 +1,6 @@
 [<RequireQualifiedAccess>]
 module FsSodium.HashingSHA512
 
-open FSharpPlus
 let private hashLength = lazy (Interop.crypto_hash_sha512_bytes() |> int)
 let private stateLength = lazy (Interop.crypto_generichash_statebytes() |> int)
 
