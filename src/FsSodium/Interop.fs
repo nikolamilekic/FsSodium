@@ -373,3 +373,26 @@ extern uint32 crypto_stream_keybytes()
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern uint32 crypto_stream_noncebytes()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern void crypto_kdf_keygen(byte[] masterKey)
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_kdf_keybytes()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_kdf_bytes_min()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_kdf_bytes_max()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_kdf_contextbytes()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_kdf_derive_from_key(
+    byte[] key,
+    uint32 keyLength,
+    uint64 keyId,
+    byte[] context,
+    byte[] masterKey)
