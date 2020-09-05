@@ -28,6 +28,7 @@
     <Compile Include="PublicKeyEncryption.fs" />
     <Compile Include="SecretKeyAuthentication.fs" />
     <Compile Include="SecretKeyEncryption.fs" />
+    <Compile Include="XSalsa20.fs" />
     <Compile Include="StreamEncryption.fs" />
     <Compile Include="Hashing.fs" />
     <Compile Include="HashingSHA512.fs" />

@@ -4,6 +4,7 @@
 * SecretKeyAuthentication
 * The library now initializes libsodium automatically
 * Refactorying and API cleanup
+* XSalsa20
 
 ### 0.2 - 2019/07/30
 * Switched to using Milekic.YoLo library

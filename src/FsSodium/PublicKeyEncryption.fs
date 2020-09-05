@@ -63,8 +63,8 @@ let makeBuffersFactory () =
 let encryptTo
     (senderKey : SecretKey)
     (PublicKey recipientKey)
-    (buffers : Buffers)
     (Nonce nonce)
+    (buffers : Buffers)
     plainTextLength =
 
     Sodium.initialize ()
@@ -87,14 +87,14 @@ let encrypt senderKey recipientKey nonce plainText =
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
-    encryptTo senderKey recipientKey buffers nonce plainTextLength
+    encryptTo senderKey recipientKey nonce buffers plainTextLength
     |>> konst buffers.CipherText
 
 let decryptTo
     (recipientKey : SecretKey)
     (PublicKey senderKey)
-    (buffers : Buffers)
     (Nonce nonce)
+    (buffers : Buffers)
     cipherTextLength =
 
     Sodium.initialize ()
@@ -118,12 +118,12 @@ let decrypt recipientKey senderKey nonce cipherText =
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromCipherText cipherText
     let cipherTextLength = Array.length cipherText
-    decryptTo recipientKey senderKey buffers nonce cipherTextLength
+    decryptTo recipientKey senderKey nonce buffers cipherTextLength
     |>> konst buffers.PlainText
 let encryptWithSharedSecretTo
     (sharedSecret : SharedSecret)
-    (buffers : Buffers)
     (Nonce nonce)
+    (buffers : Buffers)
     plainTextLength =
 
     Sodium.initialize ()
@@ -146,12 +146,12 @@ let encryptWithSharedSecret sharedSecret nonce plainText =
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
-    encryptWithSharedSecretTo sharedSecret buffers nonce plainTextLength
+    encryptWithSharedSecretTo sharedSecret nonce buffers plainTextLength
     |>> konst buffers.CipherText
 let decryptWithSharedSecretTo
     (sharedSecret : SharedSecret)
-    (buffers : Buffers)
     (Nonce nonce)
+    (buffers : Buffers)
     cipherTextLength =
 
     Sodium.initialize ()
@@ -174,5 +174,5 @@ let decryptWithSharedSecret sharedSecret nonce cipherText =
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromCipherText cipherText
     let cipherTextLength = Array.length cipherText
-    decryptWithSharedSecretTo sharedSecret buffers nonce cipherTextLength
+    decryptWithSharedSecretTo sharedSecret nonce buffers cipherTextLength
     |>> konst buffers.PlainText

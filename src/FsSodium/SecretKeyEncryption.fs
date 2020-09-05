@@ -29,7 +29,7 @@ type Nonce = private | Nonce of byte[] with
 let makeBuffersFactory () =
     Sodium.initialize ()
     BuffersFactory(macLength.Value)
-let encryptTo (key : Key) (buffers : Buffers) (Nonce nonce) plainTextLength =
+let encryptTo (key : Key) (Nonce nonce) (buffers : Buffers) plainTextLength =
     Sodium.initialize ()
     let plainText = buffers.PlainText
     if Array.length plainText < plainTextLength then
@@ -48,10 +48,10 @@ let encrypt key nonce plainText =
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
-    encryptTo key buffers nonce plainTextLength
+    encryptTo key nonce buffers plainTextLength
     |>> konst buffers.CipherText
 
-let decryptTo (key : Key) (buffers : Buffers) (Nonce nonce) cipherTextLength =
+let decryptTo (key : Key) (Nonce nonce) (buffers : Buffers) cipherTextLength =
     Sodium.initialize ()
     let cipherText = buffers.CipherText
     if Array.length cipherText < cipherTextLength then
@@ -70,5 +70,5 @@ let decrypt key nonce cipherText =
     let buffersFactory = makeBuffersFactory ()
     let buffers = buffersFactory.FromCipherText cipherText
     let cipherTextLength = Array.length cipherText
-    decryptTo key buffers nonce cipherTextLength
+    decryptTo key nonce buffers cipherTextLength
     |>> konst buffers.PlainText

@@ -18,6 +18,7 @@
     <Compile Include="PublicKeyEncryptionTests.fs" />
     <Compile Include="SecretKeyAuthenticationTests.fs" />
     <Compile Include="SecretKeyEncryptionTests.fs" />
+    <Compile Include="XSalsa20Tests.fs" />
     <Compile Include="StreamEncryptionTests.fs" />
     <Compile Include="HashingTests.fs" />
     <Compile Include="HashingSHA512Tests.fs" />

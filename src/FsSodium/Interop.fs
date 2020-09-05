@@ -363,3 +363,13 @@ extern int crypto_auth_verify(
     byte[] plainText,
     uint64 plainTextLength,
     byte[] secretKey)
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern int crypto_stream_xor(
+    byte[] output, byte[] input, uint64 length, byte[] nonce, byte[] key)
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_stream_keybytes()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_stream_noncebytes()
