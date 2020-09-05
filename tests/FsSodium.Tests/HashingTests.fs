@@ -33,6 +33,12 @@ let hashingTests =
                 let key2 = generateRecommendedKey ()
                 let input = [| 1uy; 2uy; 3uy |]
                 hashRecommended key1 input <>! hashRecommended key2 input
+            testCase "Known result" <| fun () ->
+                let input = [| 1uy; 2uy; 3uy |]
+                hashRecommended zeroKey input
+                |> Result.failOnError "Failed to hash"
+                |> Parsing.byteArrayToHexString
+                =! "11c0e79b71c3976ccd0c02d1310e2516c08edc9d8b6f57ccd680d63a4d8e72da"
         ]
         testList "Parts" [
             testCase "Same input produces same hash with no key" <| fun _ ->

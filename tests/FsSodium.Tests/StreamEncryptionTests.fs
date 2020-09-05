@@ -1,7 +1,5 @@
 module FsSodium.Tests.StreamEncryptionTests
 
-open System
-open System.IO
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
@@ -58,19 +56,19 @@ let copyStateKey : StateT<StreamEncryption.State, Result<_, _>> = monad {
 [<Tests>]
 let tests =
     testList "StreamEncryption" [
-        yield testCase "Part roundtrip works" <| fun () ->
+        testCase "Part roundtrip works" <| fun () ->
             encryptTestMessages alice
             |> Result.failOnError "Encryption failed"
             |> decryptTestMessages alice
             =! Ok testMessages
-        yield testCase "Decrypt fails with missing part" <| fun () ->
+        testCase "Decrypt fails with missing part" <| fun () ->
             let header, cipherTexts =
                 encryptTestMessages alice
                 |> Result.failOnError "Encryption failed"
             let cipherTexts = skip 1 cipherTexts
             decryptTestMessages alice (header, cipherTexts)
             =! (Error <| SodiumError -1)
-        yield testCase "Decrypt fails with modified part" <| fun () ->
+        testCase "Decrypt fails with modified part" <| fun () ->
             let header, cipherTexts =
                 encryptTestMessages alice
                 |> Result.failOnError "Encryption failed"
@@ -78,7 +76,7 @@ let tests =
             head.[0] <- if head.[0] = 0uy then 1uy else 0uy
             decryptTestMessages alice (header, cipherTexts)
             =! (Error <| SodiumError -1)
-        yield testCase "Decrypt fails with wrong header" <| fun () ->
+        testCase "Decrypt fails with wrong header" <| fun () ->
             let anotherHeader, _ = createEncryptionState alice
             let _, cipherTexts =
                 encryptTestMessages alice
@@ -86,7 +84,7 @@ let tests =
             let cipherTexts = skip 1 cipherTexts
             decryptTestMessages alice (anotherHeader, cipherTexts)
             =! (Error <| SodiumError -1)
-        yield testCase "Decrypt fails with wrong key" <| fun () ->
+        testCase "Decrypt fails with wrong key" <| fun () ->
             let header, cipherTexts =
                 encryptTestMessages alice
                 |> Result.failOnError "Encryption failed"
@@ -109,16 +107,16 @@ let tests =
             |>> fst
             =! Ok ()
 
-        yield testCase "Key is not modified after encrypting message" <| fun () ->
+        testCase "Key is not modified after encrypting message" <| fun () ->
             checkKeyModificationAfterMessage false Message
-        yield testCase "Key is not modified after encrypting push" <| fun () ->
+        testCase "Key is not modified after encrypting push" <| fun () ->
             checkKeyModificationAfterMessage false Push
-        yield testCase "Key is modified after encrypting rekey" <| fun () ->
+        testCase "Key is modified after encrypting rekey" <| fun () ->
             checkKeyModificationAfterMessage true Rekey
-        yield testCase "Key is modified after encrypting final" <| fun () ->
+        testCase "Key is modified after encrypting final" <| fun () ->
             checkKeyModificationAfterMessage true Final
 
-        yield testCase "Old state is disposed after encryption" <| fun () ->
+        testCase "Old state is disposed after encryption" <| fun () ->
             let (_, state) = createEncryptionState alice
             monad {
                 let! (state : StreamEncryption.State) = State.get |> StateT.hoist
@@ -131,7 +129,7 @@ let tests =
             |> StateT.run <| state
             |>> ignore
             =! Ok ()
-        yield testCase "Old state is disposed after decryption" <| fun () ->
+        testCase "Old state is disposed after decryption" <| fun () ->
             let (h, state) = createEncryptionState alice
             let c =
                 StreamEncryption.encryptPart Message [|1uy; 2uy; 3uy|]
@@ -147,7 +145,7 @@ let tests =
             |> StateT.run <| createDecryptionState (alice, h)
             |>> ignore
             =! Ok ()
-        yield testCase "Key is copied after encryption" <| fun () ->
+        testCase "Key is copied after encryption" <| fun () ->
             let (_, state) = createEncryptionState alice
             monad {
                 let! initialKey = copyStateKey
@@ -164,7 +162,7 @@ let tests =
             |> StateT.run <| state
             |>> ignore
             =! Ok ()
-        yield testCase "Key is copied after decryption" <| fun () ->
+        testCase "Key is copied after decryption" <| fun () ->
             let (h, state) = createEncryptionState alice
             let c =
                 StreamEncryption.encryptPart Message [|1uy; 2uy; 3uy|]

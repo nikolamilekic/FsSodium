@@ -1,5 +1,7 @@
 namespace FsSodium
 
+open System
+open System.Globalization
 open System.Runtime.InteropServices
 open FSharpPlus.Math.Generic
 
@@ -58,3 +60,11 @@ type BuffersFactory (macLength) =
         if cipherTextLength <= macLength
         then 0
         else cipherTextLength - macLength
+
+module Parsing =
+    let parseByteArrayFromHexString x =
+        Seq.chunkBySize 2 x
+        |> Seq.map (String >> fun s -> Byte.Parse(s, NumberStyles.AllowHexSpecifier))
+        |> Seq.toArray
+    let byteArrayToHexString (x : byte seq) =
+        x |> Seq.fold (fun s x -> s + sprintf "%02x" x) ""

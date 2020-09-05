@@ -95,4 +95,24 @@ let publicKeyAuthenticationTests =
                 encryptWithSharedSecret sharedSecret nonce plainText
             let decrypted = decrypt (fst bob) (snd alice) nonce cipherText
             decrypted =! Ok plainText
+        testCase "Known result" <| fun () ->
+            let plainText = [|1uy; 2uy; 3uy|]
+            let nonce =
+                "bdf52fbdfce5273acaf918e9339821103ef74fe738ae70a6"
+                |> Parsing.parseByteArrayFromHexString
+                |> PublicKeyEncryption.Nonce.Import
+                |> Result.failOnError "Failed to import nonce"
+            let secretKey =
+                "f8b858a6ef5d35d029b5141f656986cb9e4b736da515dd8e77d82d14f462ae67"
+                |> Parsing.parseByteArrayFromHexString
+                |> PublicKeyEncryption.SecretKey.Import
+                |> Result.failOnError "Failed to import secret key"
+            let publicKey =
+                "52ec2804393ee545a482addab0fc87856381627721d6007cb8288516afe23c07"
+                |> Parsing.parseByteArrayFromHexString
+                |> PublicKeyEncryption.PublicKey.Import
+                |> Result.failOnError "Failed to import public key"
+            encrypt secretKey publicKey nonce plainText
+            |> Parsing.byteArrayToHexString
+            =! "6de2e0aabf3d986c0c586ddd70852633efd523"
     ]

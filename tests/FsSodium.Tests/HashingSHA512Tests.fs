@@ -19,6 +19,11 @@ let hashingTests =
             testCase "Different input produces different hash" <| fun _ ->
                 HashingSHA512.hash [| 1uy; 2uy; 3uy |]
                 <>! HashingSHA512.hash [| 1uy; 2uy |]
+            testCase "Known result" <| fun () ->
+                HashingSHA512.hash [| 1uy; 2uy; 3uy |]
+                |> Result.failOnError "Failed to hash"
+                |> Parsing.byteArrayToHexString
+                =! "27864cc5219a951a7a6e52b8c8dddf6981d098da1658d96258c870b2c88dfbcb51841aea172a28bafa6a79731165584677066045c959ed0f9929688d04defc29"
         ]
         testList "Parts" [
             testCase "Same input produces same hash" <| fun _ ->

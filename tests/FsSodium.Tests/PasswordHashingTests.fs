@@ -1,5 +1,6 @@
 module FsSodium.Tests.PasswordHashingTests
 
+open System.Text
 open Expecto
 open Swensen.Unquote
 open Milekic.YoLo
@@ -30,13 +31,26 @@ let generateSalt() = PasswordHashing.Salt.Generate()
 [<Tests>]
 let passwordHashingTests =
     testList "PasswordHashing" [
-        yield testCase "Hashing with same parameters leads to same results" <| fun () ->
+        testCase "Hashing with same parameters leads to same results" <| fun () ->
             let password = generateRandomPassword()
             let salt = generateSalt()
             hashWithFixture salt password =! hashWithFixture salt password
-        yield testCase "Hashing with different parameters leads to different results" <| fun () ->
+        testCase "Hashing with different parameters leads to different results" <| fun () ->
             let password = generateRandomPassword()
             let salt1 = generateSalt()
             let salt2 = generateSalt()
             hashWithFixture salt1 password <>! hashWithFixture salt2 password
+        testCase "Known result" <| fun () ->
+            let salt =
+                "aed2374479934c46987619d789425c02"
+                |> Parsing.parseByteArrayFromHexString
+                |> PasswordHashing.Salt.Import
+                |> Result.failOnError "Failed to import salt"
+            let password =
+                "test"
+                |> Encoding.UTF8.GetBytes
+                |> PasswordHashing.Password.Import
+                |> Result.failOnError "Failed to import password"
+            hashWithFixture salt password
+            |> Parsing.byteArrayToHexString =! "79332248223f77a230da03258b9b1f82"
     ]
