@@ -118,10 +118,28 @@ extern uint64 crypto_pwhash_opslimit_min()
 extern uint64 crypto_pwhash_opslimit_max()
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_opslimit_interactive()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_opslimit_moderate()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint64 crypto_pwhash_opslimit_sensitive()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern uint32 crypto_pwhash_memlimit_max()
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern uint32 crypto_pwhash_memlimit_min()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_pwhash_memlimit_interactive()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_pwhash_memlimit_moderate()
+
+[<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
+extern uint32 crypto_pwhash_memlimit_sensitive()
 
 [<DllImport(Name, CallingConvention = CallingConvention.Cdecl)>]
 extern uint32 crypto_pwhash_bytes_min()

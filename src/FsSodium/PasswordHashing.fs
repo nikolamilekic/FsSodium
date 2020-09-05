@@ -7,9 +7,15 @@ open FSharpPlus
 let private saltLength = lazy (Interop.crypto_pwhash_saltbytes() |> int)
 let private numberOfOperationsMaximumCount = lazy Interop.crypto_pwhash_opslimit_max()
 let private numberOfOperationsMinimumCount = lazy Interop.crypto_pwhash_opslimit_min()
+let private numberOfOperationsInteractiveCount = lazy Interop.crypto_pwhash_opslimit_interactive()
+let private numberOfOperationsModerateCount = lazy Interop.crypto_pwhash_opslimit_moderate()
+let private numberOfOperationsSensitiveCount = lazy Interop.crypto_pwhash_opslimit_sensitive()
 let private algorithmDefault = lazy Interop.crypto_pwhash_alg_default()
 let private memoryLimitMaximum = lazy Interop.crypto_pwhash_memlimit_max()
 let private memoryLimitMinimum = lazy Interop.crypto_pwhash_memlimit_min()
+let private memoryLimitInteractive = lazy Interop.crypto_pwhash_memlimit_interactive()
+let private memoryLimitModerate = lazy Interop.crypto_pwhash_memlimit_moderate()
+let private memoryLimitSensitive = lazy Interop.crypto_pwhash_memlimit_sensitive()
 let private keyMaximumLength = lazy Interop.crypto_pwhash_bytes_max()
 let private keyMinimumLength = lazy Interop.crypto_pwhash_bytes_min()
 let private passwordMinimumLength = lazy Interop.crypto_pwhash_passwd_min()
@@ -30,6 +36,15 @@ type NumberOfOperations = private | NumberOfOperations of uint64 with
     static member Maximum =
         Sodium.initialize ()
         NumberOfOperations numberOfOperationsMaximumCount.Value
+    static member Interactive =
+        Sodium.initialize ()
+        NumberOfOperations numberOfOperationsInteractiveCount.Value
+    static member Moderate =
+        Sodium.initialize ()
+        NumberOfOperations numberOfOperationsModerateCount.Value
+    static member Sensitive =
+        Sodium.initialize ()
+        NumberOfOperations numberOfOperationsSensitiveCount.Value
     static member Custom x =
         Sodium.initialize ()
         let casted = uint64 x
@@ -59,6 +74,15 @@ type MemoryLimit = private | MemoryLimit of uint32 with
     static member Maximum =
         Sodium.initialize ()
         MemoryLimit memoryLimitMaximum.Value
+    static member Interactive =
+        Sodium.initialize ()
+        MemoryLimit memoryLimitInteractive.Value
+    static member Moderate =
+        Sodium.initialize ()
+        MemoryLimit memoryLimitModerate.Value
+    static member Sensitive =
+        Sodium.initialize ()
+        MemoryLimit memoryLimitSensitive.Value
     member this.Get = let (MemoryLimit x) = this in uint32 x
 type HashPasswordParameters = {
     NumberOfOperations : NumberOfOperations
