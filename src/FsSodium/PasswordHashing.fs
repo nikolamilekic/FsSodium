@@ -90,15 +90,6 @@ type HashPasswordParameters = {
     Algorithm : Algorithm
     Salt : Salt
 }
-module HashPasswordParameters =
-    let inline _numberOfOperations f s =
-        s.NumberOfOperations |> f <&> fun v -> { s with NumberOfOperations = v }
-    let inline _memoryLimit f s =
-        s.MemoryLimit |> f <&> fun v -> { s with MemoryLimit = v }
-    let inline _algorithm f s =
-        s.Algorithm |> f <&> fun v -> { s with Algorithm = v }
-    let inline _salt f s = s.Salt |> f <&> fun v -> { s with Salt = v }
-
 type KeyLength = private | KeyLength of uint32 with
     static member Validate x =
         Sodium.initialize ()
