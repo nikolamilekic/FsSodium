@@ -1,4 +1,7 @@
-### 0.3 (Released 2020/09/14)
+## 0.4 (Released 2022/02/19)
+* Update to .NET 6
+
+## 0.3 (Released 2020/09/14)
 * Hashing (both generic and SHA512)
 * Common.getSodiumVersion
 * SecretKeyAuthentication

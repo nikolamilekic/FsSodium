@@ -1,0 +1,20 @@
+name: Release
+
+on:
+  push:
+    branches: [ release ]
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+    - name: Run Fake
+      run: ./build.sh -t ReleaseAction
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

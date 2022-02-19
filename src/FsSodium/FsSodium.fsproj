@@ -1,24 +1,18 @@
-<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
-  </PropertyGroup>
-  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
     <Description>FSharp wrapper for the libsodium crypto library</Description>
     <Authors>Nikola Milekic</Authors>
-    <RepositoryUrl>https://github.com/nikolamilekic/FsSodium/</RepositoryUrl>
+    <Copyright>Copyright © $([System.DateTime]::Now.Year) Nikola Milekic</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/nikolamilekic/FsSodium</PackageProjectUrl>
-    <PublishRepositoryUrl>true</PublishRepositoryUrl>
-    <EmbedUntrackedSources>true</EmbedUntrackedSources>
-    <AllowedOutputExtensionsInPackageBuildOutputFolder>$(AllowedOutputExtensionsInPackageBuildOutputFolder);.pdb</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <PackageProjectUrl>https://github.com/nikolamilekic/FsSodium/</PackageProjectUrl>
+    <IsPackable>true</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-      <_Parameter1>$(AssemblyName).Tests</_Parameter1>
-    </AssemblyAttribute>
+    <InternalsVisibleTo Include="FsSodium.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="paket.references" />
     <Compile Include="Interop.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Random.fs" />
@@ -34,6 +28,5 @@
     <Compile Include="HashingSHA512.fs" />
     <Compile Include="KeyDerivation.fs" />
   </ItemGroup>
-  <Import Project="..\..\packages\Milekic.YoLo\SetVersion.targets" />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
