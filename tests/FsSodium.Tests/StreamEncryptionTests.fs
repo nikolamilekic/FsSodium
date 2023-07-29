@@ -26,7 +26,7 @@ let testMessages =
     |> Seq.zip [ Message; Push; Rekey; Final ]
     |> toList
 let encryptTestMessages key = monad.strict {
-    let (header, state) = createEncryptionState key
+    let header, state = createEncryptionState key
     let! cipherTexts =
         testMessages
         |>> uncurry StreamEncryption.encryptPart
@@ -73,7 +73,7 @@ let tests =
                 encryptTestMessages alice
                 |> Result.failOnError "Encryption failed"
             let head = List.head cipherTexts
-            head.[0] <- if head.[0] = 0uy then 1uy else 0uy
+            head[0] <- if head[0] = 0uy then 1uy else 0uy
             decryptTestMessages alice (header, cipherTexts)
             =! (Error <| SodiumError -1)
         testCase "Decrypt fails with wrong header" <| fun () ->
@@ -92,7 +92,7 @@ let tests =
             =! (Error <| SodiumError -1)
 
         let checkKeyModificationAfterMessage shouldBeModified messageType =
-            let (_, state) = createEncryptionState alice
+            let _, state = createEncryptionState alice
             monad {
                 let! initialKey = copyStateKey
                 do!
@@ -117,7 +117,7 @@ let tests =
             checkKeyModificationAfterMessage true Final
 
         testCase "Old state is disposed after encryption" <| fun () ->
-            let (_, state) = createEncryptionState alice
+            let _, state = createEncryptionState alice
             monad {
                 let! (state : StreamEncryption.State) = State.get |> StateT.hoist
                 state.State.k <>! zeros
@@ -130,7 +130,7 @@ let tests =
             |>> ignore
             =! Ok ()
         testCase "Old state is disposed after decryption" <| fun () ->
-            let (h, state) = createEncryptionState alice
+            let h, state = createEncryptionState alice
             let c =
                 StreamEncryption.encryptPart Message [|1uy; 2uy; 3uy|]
                 |> StateT.run <| state
@@ -146,7 +146,7 @@ let tests =
             |>> ignore
             =! Ok ()
         testCase "Key is copied after encryption" <| fun () ->
-            let (_, state) = createEncryptionState alice
+            let _, state = createEncryptionState alice
             monad {
                 let! initialKey = copyStateKey
                 let! (initialState : StreamEncryption.State) = State.get |> StateT.hoist
@@ -163,7 +163,7 @@ let tests =
             |>> ignore
             =! Ok ()
         testCase "Key is copied after decryption" <| fun () ->
-            let (h, state) = createEncryptionState alice
+            let h, state = createEncryptionState alice
             let c =
                 StreamEncryption.encryptPart Message [|1uy; 2uy; 3uy|]
                 |> StateT.run <| state

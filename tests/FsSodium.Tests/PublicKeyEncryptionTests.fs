@@ -48,7 +48,7 @@ let publicKeyAuthenticationTests =
             let nonce = generateNonce()
             encrypt (fst alice) (snd bob) nonce plainText
             |> fun c ->
-                c.[0] <- if c.[0] = 0uy then 1uy else 0uy
+                c[0] <- if c[0] = 0uy then 1uy else 0uy
                 decrypt (fst bob) (snd alice) nonce c
             =! (Error <| SodiumError -1)
         testCase "Decrypt fails with modified nonce" <| fun () ->

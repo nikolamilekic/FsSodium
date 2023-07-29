@@ -6,7 +6,7 @@ open FSharpPlus
 open FSharpPlus.Data
 
 let internal macLength =
-    lazy (Interop.crypto_secretstream_xchacha20poly1305_abytes() |> int)
+    lazy (Interop.crypto_secretstream_xchacha20poly1305_abytes() |> int |> MacLength)
 let private keyLength =
     lazy (Interop.crypto_secretstream_xchacha20poly1305_keybytes() |> int)
 let private headerLength =
@@ -15,6 +15,8 @@ let private messageTag = lazy Interop.crypto_secretstream_xchacha20poly1305_tag_
 let private finalTag = lazy Interop.crypto_secretstream_xchacha20poly1305_tag_final()
 let private rekeyTag = lazy Interop.crypto_secretstream_xchacha20poly1305_tag_rekey()
 let private pushTag = lazy Interop.crypto_secretstream_xchacha20poly1305_tag_push()
+let getCipherTextLength plainTextLength = Sodium.getCipherTextLength macLength.Value plainTextLength
+let getPlainTextLength cipherTextLength = Sodium.getPlainTextLength macLength.Value cipherTextLength
 
 type Key private (key) =
     inherit Secret(key)
@@ -33,8 +35,8 @@ type Header = private | Header of byte[] with
     member this.Get = let (Header x) = this in x
 
 type State internal (state : Interop.crypto_secretstream_xchacha20poly1305_state) =
-    member internal __.State = state
-    member __.Dispose() =
+    member internal _.State = state
+    member _.Dispose() =
         Sodium.initialize ()
         let clear x =
             if not (isNull x) then
@@ -71,25 +73,23 @@ let createDecryptionState(key : Key, Header header) =
 
 type MessageType = Message | Final | Push | Rekey
 
-let makeBuffersFactory () =
-    Sodium.initialize ()
-    BuffersFactory(macLength.Value)
-
 let setNewState newState = monad {
     let! (oldState : State) = State.get |> StateT.hoist
     oldState.Dispose()
     do! (State.put newState) |> StateT.hoist
 }
 let encryptPartTo
-    (encryptionBuffers : Buffers)
+    (CipherText cipherText)
+    (PlainText plainText)
     messageType
     plainTextLength = monad {
 
     Sodium.initialize ()
 
-    let plainText = encryptionBuffers.PlainText
     if Array.length plainText < plainTextLength then
         invalidArg "plainTextLength" "Provided plain text buffer is too small"
+    if Array.length cipherText < getCipherTextLength plainTextLength then
+        invalidArg "cipherText" "Provided cipher text buffer is too small"
 
     let! (state : State) = State.get |> StateT.hoist
     let mutable s = state.State
@@ -103,7 +103,7 @@ let encryptPartTo
     let result =
         Interop.crypto_secretstream_xchacha20poly1305_push(
             &s,
-            encryptionBuffers.CipherText,
+            cipherText,
             IntPtr.Zero,
             plainText,
             uint64 plainTextLength,
@@ -117,21 +117,22 @@ let encryptPartTo
     else return! SodiumError result |> Error |> StateT.lift
 }
 let encryptPart messageType plainText = monad {
-    let buffersFactory = makeBuffersFactory ()
-    let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
-    do! encryptPartTo buffers messageType plainTextLength
-    return buffers.CipherText
+    let cipherText = Array.zeroCreate <| getCipherTextLength plainTextLength
+    do! encryptPartTo (CipherText cipherText) (PlainText plainText) messageType plainTextLength
+    return cipherText
 }
 let decryptPartTo
-    (decryptionBuffers : Buffers)
+    (CipherText cipherText)
+    (PlainText plainText)
     cipherTextLength = monad {
 
     Sodium.initialize ()
 
-    let cipherText = decryptionBuffers.CipherText
     if Array.length cipherText < cipherTextLength then
         invalidArg "cipherTextLength" "Provided cipher text buffer too small"
+    if Array.length plainText < getPlainTextLength cipherTextLength then
+        invalidArg "plainText" "Provided plain text buffer is too small"
 
     let! (state : State) = State.get |> StateT.hoist
     let mutable s = state.State
@@ -140,7 +141,7 @@ let decryptPartTo
     let result =
         Interop.crypto_secretstream_xchacha20poly1305_pull(
             &s,
-            decryptionBuffers.PlainText,
+            plainText,
             IntPtr.Zero,
             &tag,
             cipherText,
@@ -159,10 +160,8 @@ let decryptPartTo
     else return! (SodiumError result) |> Error |> StateT.lift
 }
 let decryptPart cipherText = monad {
-    let buffersFactory = makeBuffersFactory ()
-    let buffers = buffersFactory.FromCipherText cipherText
-    GC.SuppressFinalize buffers
     let cipherTextLength = Array.length cipherText
-    let! messageType = decryptPartTo buffers cipherTextLength
-    return messageType, buffers.PlainText
+    let plainText = Array.zeroCreate <| getPlainTextLength cipherTextLength
+    let! messageType = decryptPartTo (CipherText cipherText) (PlainText plainText) cipherTextLength
+    return messageType, plainText
 }

@@ -3,7 +3,7 @@ module FsSodium.PublicKeyAuthentication
 
 open System
 
-let private macLength = lazy (Interop.crypto_sign_bytes() |> int)
+let private macLength = lazy (Interop.crypto_sign_bytes() |> int |> MacLength)
 let private publicKeyLength = lazy (Interop.crypto_sign_publickeybytes() |> int)
 let private secretKeyLength = lazy (Interop.crypto_sign_secretkeybytes() |> int)
 
@@ -38,12 +38,12 @@ and PublicKey = private | PublicKey of byte[] with
 type Mac = private | Mac of byte[] with
     static member Import x =
         Sodium.initialize ()
-        if Array.length x <> macLength.Value then Error () else Ok <| Mac x
+        if Array.length x <> macLength.Value.Get then Error () else Ok <| Mac x
     member this.Get = let (Mac x) = this in x
 
 let signWithLength (secretKey : SecretKey) message messageLength =
     Sodium.initialize ()
-    let mac = Array.zeroCreate macLength.Value
+    let mac = Array.zeroCreate macLength.Value.Get
     let result =
         Interop.crypto_sign_detached(
             mac,

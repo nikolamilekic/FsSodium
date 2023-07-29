@@ -1,3 +1,6 @@
+## 0.5
+* Simplify API by removing buffers
+
 ## 0.4 (Released 2022/02/19)
 * Update to .NET 6
 

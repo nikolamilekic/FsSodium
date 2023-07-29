@@ -29,7 +29,7 @@ let tests =
             let cipherText =
                 encrypt alice nonce plainText
 
-            cipherText.[0] <- if cipherText.[0] = 0uy then 1uy else 0uy
+            cipherText[0] <- if cipherText[0] = 0uy then 1uy else 0uy
             decrypt alice nonce cipherText
             =! (Error <| SodiumError -1)
         testCase "Decrypt fails with modified nonce" <| fun () ->

@@ -5,7 +5,9 @@ open FSharpPlus
 
 let private keyLength = lazy (Interop.crypto_secretbox_keybytes() |> int)
 let private nonceLength = lazy (Interop.crypto_secretbox_noncebytes() |> int)
-let private macLength = lazy (Interop.crypto_secretbox_macbytes() |> int)
+let private macLength = lazy (Interop.crypto_secretbox_macbytes() |> int |> MacLength)
+let getCipherTextLength plainTextLength = Sodium.getCipherTextLength macLength.Value plainTextLength
+let getPlainTextLength cipherTextLength = Sodium.getPlainTextLength macLength.Value cipherTextLength
 
 type Key private (key) =
     inherit Secret(key)
@@ -26,18 +28,17 @@ type Nonce = private | Nonce of byte[] with
         Sodium.initialize ()
         if Array.length x <> nonceLength.Value then Error () else Ok <| Nonce x
 
-let makeBuffersFactory () =
+let encryptTo (key : Key) (Nonce nonce) (PlainText plainText) (CipherText cipherText) plainTextLength =
     Sodium.initialize ()
-    BuffersFactory(macLength.Value)
-let encryptTo (key : Key) (Nonce nonce) (buffers : Buffers) plainTextLength =
-    Sodium.initialize ()
-    let plainText = buffers.PlainText
+
     if Array.length plainText < plainTextLength then
         invalidArg "plainTextLength" "Provided plain text buffer is too small"
+    if Array.length cipherText < getCipherTextLength plainTextLength then
+        invalidArg "cipherText" "Provided cipher text buffer is too small"
 
     let result =
         Interop.crypto_secretbox_easy(
-            buffers.CipherText,
+            cipherText,
             plainText,
             uint64 plainTextLength,
             nonce,
@@ -45,21 +46,22 @@ let encryptTo (key : Key) (Nonce nonce) (buffers : Buffers) plainTextLength =
 
     if result = 0 then Ok () else Error <| SodiumError result
 let encrypt key nonce plainText =
-    let buffersFactory = makeBuffersFactory ()
-    let buffers = buffersFactory.FromPlainText plainText
     let plainTextLength = Array.length plainText
-    encryptTo key nonce buffers plainTextLength
-    |>> konst buffers.CipherText
+    let cipherText = Array.zeroCreate <| getCipherTextLength plainTextLength
+    encryptTo key nonce (PlainText plainText) (CipherText cipherText) plainTextLength
+    |>> konst cipherText
 
-let decryptTo (key : Key) (Nonce nonce) (buffers : Buffers) cipherTextLength =
+let decryptTo (key : Key) (Nonce nonce) (CipherText cipherText) (PlainText plainText) cipherTextLength =
     Sodium.initialize ()
-    let cipherText = buffers.CipherText
+
     if Array.length cipherText < cipherTextLength then
         invalidArg "cipherTextLength" "Provided cipher text buffer too small"
+    if Array.length plainText < getPlainTextLength cipherTextLength then
+        invalidArg "plainText" "Provided plain text buffer is too small"
 
     let result =
         Interop.crypto_secretbox_open_easy(
-            buffers.PlainText,
+            plainText,
             cipherText,
             uint64 cipherTextLength,
             nonce,
@@ -67,8 +69,7 @@ let decryptTo (key : Key) (Nonce nonce) (buffers : Buffers) cipherTextLength =
 
     if result = 0 then Ok () else Error <| SodiumError result
 let decrypt key nonce cipherText =
-    let buffersFactory = makeBuffersFactory ()
-    let buffers = buffersFactory.FromCipherText cipherText
     let cipherTextLength = Array.length cipherText
-    decryptTo key nonce buffers cipherTextLength
-    |>> konst buffers.PlainText
+    let plainText = Array.zeroCreate <| getPlainTextLength cipherTextLength
+    decryptTo key nonce (CipherText cipherText) (PlainText plainText) cipherTextLength
+    |>> konst plainText

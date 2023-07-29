@@ -10,7 +10,7 @@ type Key private (key) =
     inherit Secret(key)
     static member Generate() =
         Sodium.initialize ()
-        new Key(Random.bytes (keyLength.Value))
+        new Key(Random.bytes keyLength.Value)
     static member Import x =
         Sodium.initialize ()
         if Array.length x <> keyLength.Value then Error () else Ok <| new Key(x)

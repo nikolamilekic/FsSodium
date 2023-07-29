@@ -66,7 +66,7 @@ type HashLength = private | HashLength of uint32 with
 type State = private | State of state:byte[] * hashLength:uint32 with
     static member Create(Key k, HashLength hashLength) =
         Sodium.initialize ()
-        let state = Array.zeroCreate (stateLength.Value)
+        let state = Array.zeroCreate stateLength.Value
         let keyLength = if isNull k then 0 else Array.length k
         let result =
             Interop.crypto_generichash_init(

@@ -26,7 +26,7 @@ let publicKeyAuthenticationTests =
         testCase "Verify fails for modified signature" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let rawMac = (signWithFixture plainText).Get
-            rawMac.[0] <- if rawMac.[0] = 0uy then 1uy else 0uy
+            rawMac[0] <- if rawMac[0] = 0uy then 1uy else 0uy
             let mac =
                 PublicKeyAuthentication.Mac.Import rawMac
                 |> Result.failOnError "Could not reimport mac"
@@ -35,7 +35,7 @@ let publicKeyAuthenticationTests =
         testCase "Verify fails for modified message" <| fun () ->
             let plainText = [|1uy; 2uy; 3uy|]
             let mac = signWithFixture  plainText
-            plainText.[0] <- 0uy
+            plainText[0] <- 0uy
             verifyWithFixture mac plainText
             =! (Error <| SodiumError -1)
         testCase "Verify fails for wrong key" <| fun () ->
